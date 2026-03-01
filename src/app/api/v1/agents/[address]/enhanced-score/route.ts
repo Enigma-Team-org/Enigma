@@ -53,6 +53,8 @@ export async function GET(
       v2Score: combined.v2Score,
       v1Score: combined.v1Score,
       tracerScore: combined.tracerScore,
+      sentinelScore: combined.sentinelScore,
+      sentinelVerdict: combined.sentinelVerdict,
       classification: combined.classification,
       weights: COMBINED_WEIGHTS,
       pillars: combined.pillars,
