@@ -3,6 +3,8 @@ import { successResponse, handleError } from '@/lib/utils/api-helpers';
 import { createLogger } from '@/lib/utils/logger';
 import { syncAgentsFromRoutescan, refreshAllMetadata } from '@/services/routescan-indexer-service';
 import { recalculateAllScores } from '@/services/trust-score-service';
+import { syncTransactionVolumes } from '@/services/transaction-volume-service';
+import { syncRatingsFromReputation } from '@/services/reputation-indexer-service';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
@@ -15,7 +17,9 @@ const logger = createLogger('cron-indexer');
  *
  * Scheduled job that runs every 3 hours to:
  * 1. Index new agents + update metadata from the ERC-8004 registry via Routescan API
- * 2. Recalculate trust scores for ALL agents
+ * 2. Sync transaction volumes from Snowtrace API
+ * 3. Import on-chain ratings from Reputation Registry
+ * 4. Recalculate trust scores for ALL agents
  *
  * Protected by Vercel Cron Secret in production
  */
@@ -44,7 +48,19 @@ export async function GET(request: NextRequest) {
 
     const totalIndexed = syncResult.indexed + refreshResult.indexed;
 
-    // Always recalculate trust scores for all agents
+    // Step 2+3: Sync volumes + ratings (parallel, non-blocking)
+    const [volumeResult, ratingsResult] = await Promise.all([
+      syncTransactionVolumes().catch((err) => {
+        logger.error({ error: err }, 'Transaction volume sync failed (non-blocking)');
+        return { indexed: 0, failed: 0, skipped: 0 };
+      }),
+      syncRatingsFromReputation().catch((err) => {
+        logger.error({ error: err }, 'Reputation sync failed (non-blocking)');
+        return { imported: 0, failed: 0, skipped: 0 };
+      }),
+    ]);
+
+    // Step 4: Recalculate trust scores for all agents
     const updatedScores = await recalculateAllScores();
 
     const duration = Date.now() - startTime;
@@ -56,6 +72,8 @@ export async function GET(request: NextRequest) {
       total: syncResult.total + refreshResult.total,
       newAgents: syncResult.indexed,
       metadataUpdated: refreshResult.indexed,
+      volumes: volumeResult,
+      ratings: ratingsResult,
       trustScoresUpdated: updatedScores,
       duration: `${(duration / 1000).toFixed(2)}s`,
     };
