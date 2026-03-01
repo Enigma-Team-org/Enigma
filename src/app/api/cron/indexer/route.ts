@@ -7,6 +7,7 @@ import { syncTransactionVolumes } from '@/services/transaction-volume-service';
 import { syncRatingsFromReputation } from '@/services/reputation-indexer-service';
 import { cleanupExpiredNonces } from '@/lib/utils/auth';
 import { validateAllAgents } from '@/services/centinela/sentinel-validator';
+import { sendHeartbeatsToAllAgents } from '@/services/centinela/heartbeat-service';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
@@ -21,8 +22,9 @@ const logger = createLogger('cron-indexer');
  * 1. Index new agents + update metadata from the ERC-8004 registry via Routescan API
  * 2. Sync transaction volumes from Snowtrace API
  * 3. Import on-chain ratings from Reputation Registry
- * 4. Recalculate trust scores for ALL agents
- * 5. Run Super Sentinel validation (27 checks) on all agents
+ * 4. Send heartbeats to all verified agents (on-chain liveness check)
+ * 5. Recalculate trust scores for ALL agents
+ * 6. Run Super Sentinel validation (27 checks) on all agents
  *
  * Protected by Vercel Cron Secret in production
  */
@@ -63,10 +65,16 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    // Step 4: Recalculate trust scores for all agents
+    // Step 4: Send heartbeats to all verified agents (on-chain liveness)
+    const heartbeatResult = await sendHeartbeatsToAllAgents().catch((err) => {
+      logger.error({ error: err }, 'Heartbeat batch failed (non-blocking)');
+      return { total: 0, successful: 0, failed: 0, skipped: 0 };
+    });
+
+    // Step 5: Recalculate trust scores for all agents
     const updatedScores = await recalculateAllScores();
 
-    // Step 5: Run Super Sentinel validation on all agents (non-blocking)
+    // Step 6: Run Super Sentinel validation on all agents (non-blocking)
     const validationResult = await validateAllAgents().catch((err) => {
       logger.error({ error: err }, 'Sentinel validation failed (non-blocking)');
       return { validated: 0, passed: 0, partial: 0, failed: 0, errors: 0 };
@@ -89,6 +97,7 @@ export async function GET(request: NextRequest) {
       metadataUpdated: refreshResult.indexed,
       volumes: volumeResult,
       ratings: ratingsResult,
+      heartbeats: heartbeatResult,
       trustScoresUpdated: updatedScores,
       sentinel: validationResult,
       noncesDeleted,

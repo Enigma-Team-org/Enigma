@@ -145,7 +145,52 @@ async function calculateRL(agentAddress: string): Promise<number> {
 }
 
 /**
+ * Extract infra signals from Sentinel validation checks
+ */
+function extractSentinelInfra(validation: { checks: unknown } | null): {
+  healthPassed: boolean;
+  tlsPassed: boolean;
+  latencyMs: number | null;
+  a2aPassed: boolean;
+  mcpPassed: boolean;
+  metadataComplete: boolean;
+} {
+  const defaults = {
+    healthPassed: false,
+    tlsPassed: false,
+    latencyMs: null as number | null,
+    a2aPassed: false,
+    mcpPassed: false,
+    metadataComplete: false,
+  };
+
+  if (!validation?.checks || !Array.isArray(validation.checks)) return defaults;
+
+  const checks = validation.checks as Array<{ check: string; passed: boolean; details: string }>;
+
+  for (const c of checks) {
+    switch (c.check) {
+      case 'HEALTH_2XX': defaults.healthPassed = c.passed; break;
+      case 'TLS_VALID': defaults.tlsPassed = c.passed; break;
+      case 'LATENCY_P95_OK': {
+        defaults.latencyMs = null;
+        // Extract latency from details like "p95 latency: 342ms"
+        const match = c.details.match(/(\d+)ms/);
+        if (match) defaults.latencyMs = parseInt(match[1]);
+        break;
+      }
+      case 'A2A_CARD_ACCESSIBLE': defaults.a2aPassed = c.passed; break;
+      case 'MCP_ENDPOINT_OK': defaults.mcpPassed = c.passed; break;
+      case 'METADATA_COMPLETE': defaults.metadataComplete = c.passed; break;
+    }
+  }
+
+  return defaults;
+}
+
+/**
  * Build AgentData for TRACER calculation from DB
+ * Enriches with Sentinel validation data when available
  */
 async function buildAgentDataForTracer(agentAddress: string): Promise<AgentData> {
   const agent = await prisma.agent.findUnique({
@@ -166,6 +211,10 @@ async function buildAgentDataForTracer(agentAddress: string): Promise<AgentData>
 
   if (!agent) throw new Error(`Agent not found: ${agentAddress}`);
 
+  // Get Sentinel data to enrich TRACER inputs
+  const sentinelValidation = await getLatestValidation(agentAddress);
+  const sentinel = extractSentinelInfra(sentinelValidation);
+
   const totalHeartbeatsAllTime = await prisma.heartbeatLog.count({
     where: { agentAddress },
   });
@@ -177,9 +226,14 @@ async function buildAgentDataForTracer(agentAddress: string): Promise<AgentData>
     .filter((h) => h.responseTimeMs !== null)
     .map((h) => h.responseTimeMs as number);
 
-  const avgResponseTimeMs = responseTimes.length > 0
+  let avgResponseTimeMs = responseTimes.length > 0
     ? responseTimes.reduce((s, t) => s + t, 0) / responseTimes.length
     : 0;
+
+  // If no heartbeat data but Sentinel has latency, use that
+  if (responseTimes.length === 0 && sentinel.latencyMs !== null) {
+    avgResponseTimeMs = sentinel.latencyMs;
+  }
 
   let responseTimeStdDev = 0;
   if (responseTimes.length > 1) {
@@ -189,21 +243,57 @@ async function buildAgentDataForTracer(agentAddress: string): Promise<AgentData>
     responseTimeStdDev = Math.sqrt(variance);
   }
 
+  // Calculate uptime: prefer heartbeat data, fallback to Sentinel health check
+  let uptime24h: number;
+  if (heartbeatCount > 0) {
+    uptime24h = (passedHeartbeats / heartbeatCount) * 100;
+  } else if (sentinelValidation) {
+    // Use Sentinel health + TLS as uptime proxy
+    uptime24h = sentinel.healthPassed ? (sentinel.tlsPassed ? 95 : 70) : 0;
+  } else {
+    uptime24h = 0; // Unknown = 0, not 100
+  }
+
+  // Derive heartbeat-like counts from Sentinel for agents with no heartbeats
+  const effectiveHeartbeatCount = heartbeatCount > 0 ? heartbeatCount : (sentinelValidation ? 1 : 0);
+  const effectivePassedHeartbeats = heartbeatCount > 0 ? passedHeartbeats
+    : (sentinel.healthPassed ? 1 : 0);
+  const effectiveTotalHeartbeats = totalHeartbeatsAllTime > 0
+    ? totalHeartbeatsAllTime
+    : (sentinelValidation ? 1 : 0);
+
   const volumeData = agent.transactionVolumes[0];
   const metadata = (agent.metadata as Record<string, unknown>) || {};
   const capabilities = (metadata.capabilities as Record<string, unknown>) || {};
   const services = (metadata.services as Array<Record<string, unknown>>) || [];
 
+  // Enrich capability detection with Sentinel data
+  const hasA2a = sentinel.a2aPassed || !!(capabilities.a2a || metadata.a2a);
+  const hasMcp = sentinel.mcpPassed;
+
+  // Skills: count verified skills from Sentinel (A2A + MCP count as verified)
+  const declaredSkills = services.map((s) => (s.name as string) || '').filter(Boolean);
+  const verifiedSkills = services
+    .filter((s) => s.verified === true)
+    .map((s) => (s.name as string) || '')
+    .filter(Boolean);
+
+  // If Sentinel verified A2A/MCP, add to verified skills
+  if (sentinel.a2aPassed && !verifiedSkills.includes('a2a')) verifiedSkills.push('a2a');
+  if (sentinel.mcpPassed && !verifiedSkills.includes('mcp')) verifiedSkills.push('mcp');
+  if (sentinel.a2aPassed && !declaredSkills.includes('a2a')) declaredSkills.push('a2a');
+  if (sentinel.mcpPassed && !declaredSkills.includes('mcp')) declaredSkills.push('mcp');
+
   return {
     address: agentAddress,
     isProxy: agent.is_proxy,
     proxyType: agent.proxy_type,
-    uptime24h: heartbeatCount > 0 ? (passedHeartbeats / heartbeatCount) * 100 : 100,
+    uptime24h,
     avgResponseTimeMs,
     responseTimeStdDev,
-    heartbeatCount,
-    passedHeartbeats,
-    totalHeartbeatsAllTime,
+    heartbeatCount: effectiveHeartbeatCount,
+    passedHeartbeats: effectivePassedHeartbeats,
+    totalHeartbeatsAllTime: effectiveTotalHeartbeats,
     volumeAvax: volumeData ? Number(volumeData.volumeAvax) : 0,
     txCount: volumeData?.txCount || 0,
     ratings: agent.ratings.map((r) => r.rating),
@@ -213,9 +303,9 @@ async function buildAgentDataForTracer(agentAddress: string): Promise<AgentData>
     hasVerifiedWallet: !!agent.billing_address,
     isOpenSource: !!(metadata.open_source || metadata.openSource || capabilities.open_source),
     hasAudits: !!(metadata.audited || metadata.audit || capabilities.audited),
-    skillsDeclared: services.map((s) => (s.name as string) || '').filter(Boolean),
-    skillsVerified: services.filter((s) => s.verified === true).map((s) => (s.name as string) || '').filter(Boolean),
-    canDelegate: !!(capabilities.delegation || capabilities.a2a || metadata.a2a),
+    skillsDeclared: declaredSkills,
+    skillsVerified: verifiedSkills,
+    canDelegate: hasA2a,
     hasAutoRecovery: !!(capabilities.auto_recovery || capabilities.autoRecovery),
     delegatedTasksCount: Number(capabilities.delegated_tasks || 0),
     trustScoreSnapshots: agent.trustScores.length,
