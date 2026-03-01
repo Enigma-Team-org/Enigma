@@ -49,10 +49,10 @@ export async function POST(
       throw new ValidationError('Invalid report data', fieldErrors);
     }
 
-    const { reason, description, signature, userAddress } = parsed.data;
+    const { reason, description, signature, userAddress, nonce } = parsed.data;
 
-    // Verify wallet signature
-    const verifiedAddress = await verifyWalletSignature(userAddress, signature);
+    // Verify wallet signature (with nonce anti-replay if provided)
+    const verifiedAddress = await verifyWalletSignature(userAddress, signature, nonce);
 
     // Check agent exists
     const agent = await prisma.agent.findUnique({

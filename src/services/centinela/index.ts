@@ -32,3 +32,11 @@ export {
   type OZComponentMatch,
   type MatchConfidence,
 } from './oz-matcher';
+
+export {
+  validateAgent,
+  validateAllAgents,
+  getLatestValidation,
+  type CheckResult,
+  type ValidationResult,
+} from './sentinel-validator';

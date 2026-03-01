@@ -19,6 +19,11 @@ const rateLimiters = {
     points: 5,
     duration: 3600,
   }),
+  // Payments: 10 requests per minute per IP
+  payments: new RateLimiterMemory({
+    points: 10,
+    duration: 60,
+  }),
 };
 
 /**
@@ -49,6 +54,13 @@ function shouldSkipRateLimit(pathname: string): boolean {
  */
 function isRegistrationEndpoint(pathname: string): boolean {
   return pathname.includes('/register') || pathname.includes('/signup');
+}
+
+/**
+ * Check if the path is a payment endpoint
+ */
+function isPaymentEndpoint(pathname: string): boolean {
+  return pathname.startsWith('/api/v1/payments');
 }
 
 /**
@@ -86,9 +98,11 @@ export async function middleware(request: NextRequest) {
     try {
       const limiter = isRegistrationEndpoint(pathname)
         ? rateLimiters.register
-        : rateLimiters.default;
+        : isPaymentEndpoint(pathname)
+          ? rateLimiters.payments
+          : rateLimiters.default;
 
-      const limiterKey = `${clientIp}_${isRegistrationEndpoint(pathname) ? 'register' : 'default'}`;
+      const limiterKey = `${clientIp}_${isRegistrationEndpoint(pathname) ? 'register' : isPaymentEndpoint(pathname) ? 'payments' : 'default'}`;
       const rateLimitRes = await limiter.consume(limiterKey);
 
       // Add rate limit headers to successful responses later
@@ -113,6 +127,35 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
     },
   });
+
+  // Security headers (CSP + CORS)
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.walletconnect.com wss://*.walletconnect.com https://api.snowtrace.io https://api.routescan.io https://facilitator.ultravioletadao.xyz; frame-ancestors 'none';"
+  );
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // CORS for API routes
+  if (pathname.startsWith('/api')) {
+    const allowedOrigins = [
+      process.env.NEXT_PUBLIC_APP_URL || 'https://enigma-scanner.vercel.app',
+      'http://localhost:3000',
+    ];
+    const origin = request.headers.get('origin');
+    if (origin && allowedOrigins.includes(origin)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+    }
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Max-Age', '86400');
+
+    // Handle preflight
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 204, headers: response.headers });
+    }
+  }
 
   // Add rate limit headers to response
   const remaining = request.headers.get('X-RateLimit-Remaining');

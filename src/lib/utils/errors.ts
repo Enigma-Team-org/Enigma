@@ -8,6 +8,8 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
+  | 'PAYMENT_REQUIRED'
+  | 'PAYMENT_FAILED'
   | 'RATE_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR'
   | 'BLOCKCHAIN_ERROR'
@@ -106,6 +108,32 @@ export class RateLimitError extends AppError {
     super(message, 429, 'RATE_LIMIT_EXCEEDED');
     this.name = 'RateLimitError';
     Object.setPrototypeOf(this, RateLimitError.prototype);
+  }
+}
+
+/**
+ * Payment required error for x402 gated content (402)
+ */
+export class PaymentRequiredError extends AppError {
+  constructor(
+    message = 'Payment required',
+    public price?: string,
+    public paymentType?: string
+  ) {
+    super(message, 402, 'PAYMENT_REQUIRED');
+    this.name = 'PaymentRequiredError';
+    Object.setPrototypeOf(this, PaymentRequiredError.prototype);
+  }
+}
+
+/**
+ * Payment failed error (422)
+ */
+export class PaymentFailedError extends AppError {
+  constructor(message = 'Payment verification failed') {
+    super(message, 422, 'PAYMENT_FAILED');
+    this.name = 'PaymentFailedError';
+    Object.setPrototypeOf(this, PaymentFailedError.prototype);
   }
 }
 

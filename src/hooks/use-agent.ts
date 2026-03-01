@@ -27,13 +27,29 @@ export interface AgentMetadata {
 }
 
 /**
- * Trust score component data from API
+ * Score pillar data from API (v2)
  */
-export interface ScoreComponent {
+export interface PillarComponent {
+  score: number;
+  weighted: number;
+}
+
+/**
+ * TRACER dimension score
+ */
+export interface TracerDimension {
   score: number;
   weight: number;
-  weighted: number;
-  details: Record<string, unknown>;
+  contribution: number;
+}
+
+/**
+ * Sentinel validation summary
+ */
+export interface SentinelSummary {
+  score: number | null;
+  maxScore: number | null;
+  verdict: string | null;
 }
 
 /**
@@ -56,12 +72,23 @@ export interface AgentDetail {
 
   trustScore: {
     score: number;
-    breakdown: {
-      volume: ScoreComponent;
-      proxy: ScoreComponent;
-      uptime: ScoreComponent;
-      ozMatch: ScoreComponent;
-      ratings: ScoreComponent;
+    v2Score: number;
+    tracerScore: number;
+    classification: string;
+    sentinel: SentinelSummary;
+    pillars: {
+      infrastructure: PillarComponent;
+      community: PillarComponent;
+      correlation: PillarComponent;
+      rl: PillarComponent;
+    };
+    tracerDimensions: {
+      trust: TracerDimension;
+      reliability: TracerDimension;
+      autonomy: TracerDimension;
+      capability: TracerDimension;
+      economics: TracerDimension;
+      reputation: TracerDimension;
     };
     lastUpdated: string;
   };

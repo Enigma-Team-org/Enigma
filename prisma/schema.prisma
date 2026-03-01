@@ -105,8 +105,10 @@ model Agent {
   reports            Report[]
   scannerResults     ScannerResult[]
   watchlistItems     WatchlistItem[]
-  heartbeatLogs      HeartbeatLog[]
-  transactionVolumes TransactionVolume[]
+  heartbeatLogs         HeartbeatLog[]
+  transactionVolumes    TransactionVolume[]
+  sentinelValidations   SentinelValidation[]
+  services              AgentService[]
 
   @@index([type])
   @@index([status])
@@ -381,6 +383,25 @@ model HeartbeatLog {
 }
 
 // ============================================
+// AUTHENTICATION NONCES (Anti-Replay)
+// ============================================
+
+/// Nonce for wallet signature authentication (prevents replay attacks)
+model AuthNonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique
+  address   String   // wallet address that requested the nonce
+  used      Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([nonce])
+  @@index([address])
+  @@index([expiresAt])
+  @@map("auth_nonces")
+}
+
+// ============================================
 // TRANSACTION VOLUME TRACKING
 // ============================================
 
@@ -415,4 +436,266 @@ model TransactionVolume {
   @@index([agentAddress])
   @@index([period])
   @@map("transaction_volumes")
+}
+
+// ============================================
+// SUPER SENTINEL VALIDATION
+// ============================================
+
+/// Validation verdict
+enum ValidationVerdict {
+  PASS
+  PARTIAL
+  FAIL
+}
+
+/// Super Sentinel validation result for an agent
+model SentinelValidation {
+  id           String            @id @default(uuid())
+  agentAddress String            @map("agent_address")
+
+  // Overall result
+  totalScore   Int               @map("total_score") // 0-120
+  maxScore     Int               @map("max_score") // max achievable (excludes N/A)
+  verdict      ValidationVerdict
+
+  // Category scores
+  metadataScore       Int @default(0) @map("metadata_score") // max 40
+  infrastructureScore Int @default(0) @map("infrastructure_score") // max 35
+  awsScore            Int @default(0) @map("aws_score") // max 25
+  x402Score            Int @default(0) @map("x402_score") // max 10
+  bonusScore          Int @default(0) @map("bonus_score") // max 10
+
+  // Individual check results (JSON array of {check, points, maxPoints, passed, details})
+  checks Json
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  agent Agent @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+
+  @@index([agentAddress])
+  @@index([createdAt])
+  @@index([verdict])
+  @@map("sentinel_validations")
+}
+
+// ============================================
+// ENIGMA ECONOMY - PAYMENTS (x402)
+// ============================================
+
+/// Payment status
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+/// Payment type (service being paid for)
+enum PaymentType {
+  TRUST_SCORE_QUERY
+  SENTINEL_VALIDATION
+  DEEP_ANALYSIS
+  MARKETPLACE_FEE
+}
+
+/// x402 Payment record
+model Payment {
+  id             String        @id @default(cuid())
+
+  payerAddress   String        @map("payer_address")
+  agentAddress   String?       @map("agent_address")
+
+  type           PaymentType
+  amountUsd      Decimal       @map("amount_usd") @db.Decimal(18, 6)
+  feeUsd         Decimal       @map("fee_usd") @db.Decimal(18, 6) @default(0)
+  burnUsd        Decimal       @map("burn_usd") @db.Decimal(18, 6) @default(0)
+
+  tokenAddress   String        @map("token_address")
+  tokenSymbol    String        @map("token_symbol") @default("USDC")
+  chainId        Int           @map("chain_id")
+
+  txHash         String?       @unique @map("tx_hash")
+  facilitatorRef String?       @map("facilitator_ref")
+
+  status         PaymentStatus @default(PENDING)
+
+  expiresAt      DateTime      @map("expires_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([payerAddress])
+  @@index([status])
+  @@index([agentAddress])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+// ============================================
+// ENIGMA ECONOMY - BURN MECHANISM
+// ============================================
+
+/// Individual burn event record
+model BurnRecord {
+  id            String   @id @default(cuid())
+
+  chainId       Int      @map("chain_id")
+  chainName     String   @map("chain_name")
+
+  stablecoinIn  String   @map("stablecoin_in")
+  amountInUsd   Decimal  @map("amount_in_usd") @db.Decimal(18, 6)
+
+  nativeToken   String   @map("native_token")
+  amountBurned  Decimal  @map("amount_burned") @db.Decimal(18, 8)
+
+  txHash        String   @unique @map("tx_hash")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([chainId])
+  @@index([createdAt])
+  @@map("burn_records")
+}
+
+/// Aggregated burn pool per chain
+model BurnPool {
+  id                String    @id @default(cuid())
+
+  chainId           Int       @unique @map("chain_id")
+  chainName         String    @map("chain_name")
+
+  pendingUsd        Decimal   @default(0) @map("pending_usd") @db.Decimal(18, 6)
+  totalBurnedUsd    Decimal   @default(0) @map("total_burned_usd") @db.Decimal(18, 6)
+  totalBurnedNative Decimal   @default(0) @map("total_burned_native") @db.Decimal(18, 8)
+
+  lastBurnAt        DateTime? @map("last_burn_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([chainId])
+  @@map("burn_pools")
+}
+
+// ============================================
+// MARKETPLACE
+// ============================================
+
+/// Service category
+enum ServiceCategory {
+  DEFI
+  TRADING
+  ANALYTICS
+  SECURITY
+  ORACLE
+  GOVERNANCE
+  INFRASTRUCTURE
+  OTHER
+}
+
+/// Deal lifecycle status
+enum DealStatus {
+  PROPOSED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+/// Published service by an agent
+model AgentService {
+  id             String          @id @default(cuid())
+  agentAddress   String          @map("agent_address")
+  name           String
+  description    String
+  category       ServiceCategory
+  priceUsd       Decimal         @map("price_usd") @db.Decimal(18, 6)
+  endpoint       String?         // A2A or API endpoint
+  isActive       Boolean         @default(true) @map("is_active")
+
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  agent          Agent           @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+  deals          Deal[]
+
+  @@index([agentAddress])
+  @@index([category])
+  @@index([isActive])
+  @@map("agent_services")
+}
+
+/// Deal between buyer and service provider
+model Deal {
+  id              String     @id @default(cuid())
+  serviceId       String     @map("service_id")
+  buyerAddress    String     @map("buyer_address")
+  sellerAddress   String     @map("seller_address")
+
+  status          DealStatus @default(PROPOSED)
+  agreedPriceUsd  Decimal    @map("agreed_price_usd") @db.Decimal(18, 6)
+
+  // Escrow reference
+  escrowTxHash    String?    @map("escrow_tx_hash")
+  completionTxHash String?   @map("completion_tx_hash")
+
+  // Timestamps
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  completedAt     DateTime?  @map("completed_at")
+
+  // Relations
+  service         AgentService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  messages        DealMessage[]
+
+  @@index([serviceId])
+  @@index([buyerAddress])
+  @@index([sellerAddress])
+  @@index([status])
+  @@map("deals")
+}
+
+/// Message in a deal conversation
+model DealMessage {
+  id            String   @id @default(cuid())
+  dealId        String   @map("deal_id")
+  senderAddress String   @map("sender_address")
+  content       String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([createdAt])
+  @@map("deal_messages")
+}
+
+// ============================================
+// GDP ANALYTICS
+// ============================================
+
+/// Daily GDP snapshot for economic metrics
+model GdpSnapshot {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+
+  // Economic metrics
+  totalPayments   Int      @default(0) @map("total_payments")
+  paymentVolumeUsd Decimal @default(0) @map("payment_volume_usd") @db.Decimal(18, 6)
+  totalBurns      Int      @default(0) @map("total_burns")
+  burnVolumeUsd   Decimal  @default(0) @map("burn_volume_usd") @db.Decimal(18, 6)
+  totalDeals      Int      @default(0) @map("total_deals")
+  dealVolumeUsd   Decimal  @default(0) @map("deal_volume_usd") @db.Decimal(18, 6)
+  activeAgents    Int      @default(0) @map("active_agents")
+  newAgents       Int      @default(0) @map("new_agents")
+  totalServices   Int      @default(0) @map("total_services")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([date])
+  @@index([date])
+  @@map("gdp_snapshots")
 }

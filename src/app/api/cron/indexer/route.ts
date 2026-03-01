@@ -3,6 +3,11 @@ import { successResponse, handleError } from '@/lib/utils/api-helpers';
 import { createLogger } from '@/lib/utils/logger';
 import { syncAgentsFromRoutescan, refreshAllMetadata } from '@/services/routescan-indexer-service';
 import { recalculateAllScores } from '@/services/trust-score-service';
+import { syncTransactionVolumes } from '@/services/transaction-volume-service';
+import { syncRatingsFromReputation } from '@/services/reputation-indexer-service';
+import { cleanupExpiredNonces } from '@/lib/utils/auth';
+import { validateAllAgents } from '@/services/centinela/sentinel-validator';
+import { sendHeartbeatsToAllAgents } from '@/services/centinela/heartbeat-service';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
@@ -15,7 +20,11 @@ const logger = createLogger('cron-indexer');
  *
  * Scheduled job that runs every 3 hours to:
  * 1. Index new agents + update metadata from the ERC-8004 registry via Routescan API
- * 2. Recalculate trust scores for ALL agents
+ * 2. Sync transaction volumes from Snowtrace API
+ * 3. Import on-chain ratings from Reputation Registry
+ * 4. Send heartbeats to all verified agents (on-chain liveness check)
+ * 5. Recalculate trust scores for ALL agents
+ * 6. Run Super Sentinel validation (27 checks) on all agents
  *
  * Protected by Vercel Cron Secret in production
  */
@@ -44,8 +53,38 @@ export async function GET(request: NextRequest) {
 
     const totalIndexed = syncResult.indexed + refreshResult.indexed;
 
-    // Always recalculate trust scores for all agents
+    // Step 2+3: Sync volumes + ratings (parallel, non-blocking)
+    const [volumeResult, ratingsResult] = await Promise.all([
+      syncTransactionVolumes().catch((err) => {
+        logger.error({ error: err }, 'Transaction volume sync failed (non-blocking)');
+        return { indexed: 0, failed: 0, skipped: 0 };
+      }),
+      syncRatingsFromReputation().catch((err) => {
+        logger.error({ error: err }, 'Reputation sync failed (non-blocking)');
+        return { imported: 0, failed: 0, skipped: 0 };
+      }),
+    ]);
+
+    // Step 4: Send heartbeats to all verified agents (on-chain liveness)
+    const heartbeatResult = await sendHeartbeatsToAllAgents().catch((err) => {
+      logger.error({ error: err }, 'Heartbeat batch failed (non-blocking)');
+      return { total: 0, successful: 0, failed: 0, skipped: 0 };
+    });
+
+    // Step 5: Recalculate trust scores for all agents
     const updatedScores = await recalculateAllScores();
+
+    // Step 6: Run Super Sentinel validation on all agents (non-blocking)
+    const validationResult = await validateAllAgents().catch((err) => {
+      logger.error({ error: err }, 'Sentinel validation failed (non-blocking)');
+      return { validated: 0, passed: 0, partial: 0, failed: 0, errors: 0 };
+    });
+
+    // Housekeeping: cleanup expired nonces
+    const noncesDeleted = await cleanupExpiredNonces().catch((err) => {
+      logger.error({ error: err }, 'Nonce cleanup failed (non-blocking)');
+      return 0;
+    });
 
     const duration = Date.now() - startTime;
 
@@ -56,7 +95,12 @@ export async function GET(request: NextRequest) {
       total: syncResult.total + refreshResult.total,
       newAgents: syncResult.indexed,
       metadataUpdated: refreshResult.indexed,
+      volumes: volumeResult,
+      ratings: ratingsResult,
+      heartbeats: heartbeatResult,
       trustScoresUpdated: updatedScores,
+      sentinel: validationResult,
+      noncesDeleted,
       duration: `${(duration / 1000).toFixed(2)}s`,
     };
 

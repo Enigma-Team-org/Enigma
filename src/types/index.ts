@@ -50,7 +50,7 @@ export interface Agent {
 }
 
 /**
- * Trust Score entity
+ * Trust Score entity (v1 — stored in DB snapshots)
  */
 export interface TrustScore {
   id: string;
@@ -66,8 +66,18 @@ export interface TrustScore {
 }
 
 /**
- * Trust Score Weights
- * volume: 25%, proxy: 20%, uptime: 25%, ozMatch: 15%, community: 15%
+ * Trust Score v2 Weights (Combined: 4 pillars)
+ * Infrastructure 50% + Community 20% + Correlation 15% + RL 15%
+ */
+export const TRUST_SCORE_V2_WEIGHTS = {
+  infrastructure: 0.50,
+  community: 0.20,
+  correlation: 0.15,
+  rl: 0.15,
+} as const;
+
+/**
+ * Trust Score v1 Weights (legacy, used internally)
  */
 export const TRUST_SCORE_WEIGHTS = {
   volume: 0.25,

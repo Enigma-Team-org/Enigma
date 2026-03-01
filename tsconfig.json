@@ -37,6 +37,9 @@
   ],
   "exclude": [
     "node_modules",
-    "supabase/functions"
+    "supabase/functions",
+    "contracts",
+    "scripts/deploy-burn.ts",
+    "hardhat.config.ts"
   ]
 }

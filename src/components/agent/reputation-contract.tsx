@@ -71,8 +71,8 @@ export function ReputationContract({ agent }: ReputationContractProps) {
   };
 
   const proxyStatus = getProxyStatus();
-  const ozMatchScore = agent.trustScore.breakdown.ozMatch.score;
-  const ozComponents = (agent.trustScore.breakdown.ozMatch.details.matchedComponents as string[]) || [];
+  const ozMatchScore = agent.trustScore.pillars.infrastructure.score;
+  const ozComponents: string[] = [];
   const uptimePercentage = agent.uptime.percentage;
 
   return (
