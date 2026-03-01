@@ -50,3 +50,4 @@ export {
   type UpdateDealStatusPayload,
   type SendMessagePayload,
 } from './use-deal';
+export { useGdpDashboard, useGdpHistory } from './use-gdp';

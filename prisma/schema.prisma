@@ -672,3 +672,30 @@ model DealMessage {
   @@index([createdAt])
   @@map("deal_messages")
 }
+
+// ============================================
+// GDP ANALYTICS
+// ============================================
+
+/// Daily GDP snapshot for economic metrics
+model GdpSnapshot {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+
+  // Economic metrics
+  totalPayments   Int      @default(0) @map("total_payments")
+  paymentVolumeUsd Decimal @default(0) @map("payment_volume_usd") @db.Decimal(18, 6)
+  totalBurns      Int      @default(0) @map("total_burns")
+  burnVolumeUsd   Decimal  @default(0) @map("burn_volume_usd") @db.Decimal(18, 6)
+  totalDeals      Int      @default(0) @map("total_deals")
+  dealVolumeUsd   Decimal  @default(0) @map("deal_volume_usd") @db.Decimal(18, 6)
+  activeAgents    Int      @default(0) @map("active_agents")
+  newAgents       Int      @default(0) @map("new_agents")
+  totalServices   Int      @default(0) @map("total_services")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([date])
+  @@index([date])
+  @@map("gdp_snapshots")
+}

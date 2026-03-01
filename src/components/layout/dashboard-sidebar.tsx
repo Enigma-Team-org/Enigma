@@ -8,6 +8,7 @@ import {
   Bot,
   PlusCircle,
   BarChart2,
+  BarChart3,
   Settings,
   Home,
   Shield,
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/scanner/agents', label: 'Agents',   icon: Bot,             exact: false },
   { href: '/burn',           label: 'Burn',     icon: Flame,           exact: true  },
   { href: '/marketplace',   label: 'Market',   icon: Store,           exact: false },
+  { href: '/dashboard',     label: 'GDP',      icon: BarChart3,       exact: true  },
   { href: '/register',       label: 'Register', icon: PlusCircle,      exact: true  },
   { href: '/docs',           label: 'Docs',     icon: BookOpen,        exact: false },
 ] as const;
