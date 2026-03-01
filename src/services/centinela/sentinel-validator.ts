@@ -680,7 +680,24 @@ function checkA2aCardValid(
 
   const hasName = typeof cardJson.name === 'string' && cardJson.name.length > 0;
   const hasDesc = typeof cardJson.description === 'string';
-  const hasSkills = Array.isArray(cardJson.skills);
+
+  // Check for skills at top level OR inside A2A service (common ERC-8004 pattern)
+  let hasSkills = Array.isArray(cardJson.skills);
+  if (!hasSkills) {
+    const services = cardJson.services as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(services)) {
+      const a2aService = services.find(
+        (s) => typeof s.name === 'string' && s.name.toLowerCase() === 'a2a'
+      );
+      if (a2aService) {
+        hasSkills = Array.isArray(a2aService.a2aSkills) || Array.isArray(a2aService.skills);
+      }
+    }
+    // Also check top-level capabilities as skills equivalent
+    if (!hasSkills) {
+      hasSkills = Array.isArray(cardJson.capabilities) && (cardJson.capabilities as unknown[]).length > 0;
+    }
+  }
 
   if (hasName && hasDesc && hasSkills) {
     check.points = 3;
@@ -847,21 +864,97 @@ async function checkX402Challenge(
     return check;
   }
 
-  // Try common paid endpoints
-  const paidPaths = ['/api/premium', '/api/paid', '/api/v1/premium'];
-  for (const path of paidPaths) {
-    const res = await safeFetch(`${baseUrl}${path}`, { timeout: 5000 });
-    if (res && res.status === 402) {
-      const payAddr = res.headers.get('x-payment-address');
-      if (payAddr) {
+  // Build list of paths to check: dynamic from metadata + standard fallbacks
+  const paidPaths = new Set<string>();
+
+  // Extract x402 endpoints from services metadata
+  if (metadata) {
+    const services = metadata.services as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(services)) {
+      for (const svc of services) {
+        const svcEndpoint = (svc.endpoint || svc.url) as string | undefined;
+        if (svcEndpoint && typeof svcEndpoint === 'string') {
+          try {
+            const u = new URL(svcEndpoint);
+            paidPaths.add(u.pathname === '/' ? '' : u.pathname);
+          } catch { /* skip */ }
+        }
+      }
+    }
+    // Check for explicit x402 endpoint declarations
+    const x402Endpoint = metadata.x402Endpoint as string | undefined;
+    if (x402Endpoint) {
+      try {
+        const u = new URL(x402Endpoint, baseUrl);
+        paidPaths.add(u.pathname);
+      } catch { /* skip */ }
+    }
+  }
+
+  // Add standard fallback paths
+  paidPaths.add('/api/premium');
+  paidPaths.add('/api/paid');
+  paidPaths.add('/api/v1/premium');
+  paidPaths.add('/api/signals');
+  paidPaths.add('/api/analyze');
+  paidPaths.add('/a2a/guide');
+
+  // Helper to check if a 402 response has valid x402 info
+  const check402Response = async (res: Response, path: string): Promise<boolean> => {
+    // Check HTTP headers (standard x402)
+    const payAddr = res.headers.get('x-payment-address')
+      || res.headers.get('x-402-payto')
+      || res.headers.get('x-402-recipient');
+    const hasWWWAuth = res.headers.get('www-authenticate')?.includes('x402');
+
+    if (payAddr || hasWWWAuth) {
+      check.points = 5;
+      check.passed = true;
+      const display = payAddr ? payAddr.slice(0, 10) + '...' : 'x402 auth';
+      check.details = `402 challenge at ${path}, payment: ${display}`;
+      return true;
+    }
+
+    // Check JSON body for x402 payment info (alternative format)
+    try {
+      const body = await res.json();
+      const hasAccepts = Array.isArray(body.accepts) && body.accepts.length > 0;
+      const hasPayTo = hasAccepts && body.accepts[0]?.payTo;
+      const hasX402Version = body.x402Version !== undefined;
+      if (hasPayTo || hasX402Version) {
         check.points = 5;
         check.passed = true;
-        check.details = `402 challenge at ${path}, payment address: ${payAddr.slice(0, 10)}...`;
-        return check;
+        const display = hasPayTo ? body.accepts[0].payTo.slice(0, 10) + '...' : 'x402 JSON';
+        check.details = `402 challenge at ${path}, payment: ${display}`;
+        return true;
       }
-      check.points = 2;
-      check.details = '402 returned but missing payment headers';
-      return check;
+    } catch { /* not JSON */ }
+
+    check.points = 3;
+    check.passed = true;
+    check.details = `402 returned at ${path} (non-standard format)`;
+    return true;
+  };
+
+  // Try GET first, then POST for each path
+  for (const path of paidPaths) {
+    const url = path.startsWith('http') ? path : `${baseUrl}${path}`;
+
+    // Try GET
+    const getRes = await safeFetch(url, { timeout: 5000 });
+    if (getRes && getRes.status === 402) {
+      if (await check402Response(getRes, path)) return check;
+    }
+
+    // Try POST (some x402 endpoints only respond to POST)
+    const postRes = await safeFetch(url, {
+      timeout: 5000,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (postRes && postRes.status === 402) {
+      if (await check402Response(postRes, path)) return check;
     }
   }
 
@@ -1041,11 +1134,17 @@ export async function validateAgent(agentAddress: string): Promise<ValidationRes
   // ---- CALCULATE TOTALS ----
   const totalScore = checks.reduce((sum, c) => sum + c.points, 0);
 
-  // Max score excludes N/A checks (AWS = 25 + X402_VERIFIED 3 + AWS_FULL 2 = 30)
+  // Max score excludes N/A and unachievable checks
   const awsNA = checks.filter(c => c.category === 'aws').every(c => c.details.includes('N/A'));
-  const maxScore = awsNA
+  let maxScore = awsNA
     ? 120 - 25 - 2 - 3 // 90 achievable without AWS + x402_verified + aws_full
     : 120;
+
+  // Exclude FIRST_VALIDATION bonus from max if already consumed (one-time bonus)
+  const firstValCheck = checks.find(c => c.check === 'FIRST_VALIDATION');
+  if (firstValCheck && !firstValCheck.passed && firstValCheck.details.includes('Previous validation')) {
+    maxScore -= firstValCheck.maxPoints;
+  }
 
   // Normalized score for verdict (percentage of achievable)
   const normalizedPct = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
