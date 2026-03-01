@@ -108,6 +108,7 @@ model Agent {
   heartbeatLogs         HeartbeatLog[]
   transactionVolumes    TransactionVolume[]
   sentinelValidations   SentinelValidation[]
+  services              AgentService[]
 
   @@index([type])
   @@index([status])
@@ -574,4 +575,100 @@ model BurnPool {
 
   @@index([chainId])
   @@map("burn_pools")
+}
+
+// ============================================
+// MARKETPLACE
+// ============================================
+
+/// Service category
+enum ServiceCategory {
+  DEFI
+  TRADING
+  ANALYTICS
+  SECURITY
+  ORACLE
+  GOVERNANCE
+  INFRASTRUCTURE
+  OTHER
+}
+
+/// Deal lifecycle status
+enum DealStatus {
+  PROPOSED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+/// Published service by an agent
+model AgentService {
+  id             String          @id @default(cuid())
+  agentAddress   String          @map("agent_address")
+  name           String
+  description    String
+  category       ServiceCategory
+  priceUsd       Decimal         @map("price_usd") @db.Decimal(18, 6)
+  endpoint       String?         // A2A or API endpoint
+  isActive       Boolean         @default(true) @map("is_active")
+
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  agent          Agent           @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+  deals          Deal[]
+
+  @@index([agentAddress])
+  @@index([category])
+  @@index([isActive])
+  @@map("agent_services")
+}
+
+/// Deal between buyer and service provider
+model Deal {
+  id              String     @id @default(cuid())
+  serviceId       String     @map("service_id")
+  buyerAddress    String     @map("buyer_address")
+  sellerAddress   String     @map("seller_address")
+
+  status          DealStatus @default(PROPOSED)
+  agreedPriceUsd  Decimal    @map("agreed_price_usd") @db.Decimal(18, 6)
+
+  // Escrow reference
+  escrowTxHash    String?    @map("escrow_tx_hash")
+  completionTxHash String?   @map("completion_tx_hash")
+
+  // Timestamps
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  completedAt     DateTime?  @map("completed_at")
+
+  // Relations
+  service         AgentService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  messages        DealMessage[]
+
+  @@index([serviceId])
+  @@index([buyerAddress])
+  @@index([sellerAddress])
+  @@index([status])
+  @@map("deals")
+}
+
+/// Message in a deal conversation
+model DealMessage {
+  id            String   @id @default(cuid())
+  dealId        String   @map("deal_id")
+  senderAddress String   @map("sender_address")
+  content       String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([createdAt])
+  @@map("deal_messages")
 }
