@@ -75,13 +75,27 @@ async function safeFetch(url: string, options: RequestInit & { timeout?: number 
  * Extract base URL from services array or metadata
  */
 function extractBaseUrl(metadata: Record<string, unknown>): string | null {
-  // Try services array first
-  const services = metadata.services as Array<{ url?: string }> | undefined;
+  // Try services array first — check both 'url' and 'endpoint' fields
+  const services = metadata.services as Array<{ url?: string; endpoint?: string; name?: string }> | undefined;
   if (services && Array.isArray(services)) {
-    for (const svc of services) {
-      if (svc.url && typeof svc.url === 'string') {
+    // Prefer 'web' service endpoint as base URL
+    const webService = services.find(s => s.name?.toLowerCase() === 'web');
+    if (webService) {
+      const webUrl = webService.endpoint || webService.url;
+      if (webUrl && typeof webUrl === 'string') {
         try {
-          const u = new URL(svc.url);
+          const u = new URL(webUrl);
+          return `${u.protocol}//${u.host}`;
+        } catch { /* skip */ }
+      }
+    }
+
+    // Fallback: try any service with url or endpoint
+    for (const svc of services) {
+      const svcUrl = svc.endpoint || svc.url;
+      if (svcUrl && typeof svcUrl === 'string') {
+        try {
+          const u = new URL(svcUrl);
           return `${u.protocol}//${u.host}`;
         } catch { /* skip */ }
       }
@@ -269,17 +283,23 @@ function checkRegistrationsMatch(metadata: Record<string, unknown> | null): Chec
     return check;
   }
 
-  const registrations = metadata.registrations as string[] | undefined;
+  const registrations = metadata.registrations as Array<string | { agentRegistry?: string; agentId?: number }> | undefined;
   if (!registrations || !Array.isArray(registrations) || registrations.length === 0) {
     check.details = 'No registrations array or empty';
     return check;
   }
 
   // Check CAIP-10 format: eip155:<chainId>:<address>
+  // Supports both string format and object format { agentRegistry: "eip155:..." }
   const caip10Regex = /^eip155:\d+:0x[a-fA-F0-9]{40}$/;
-  const validRegs = registrations.filter(r => typeof r === 'string' && caip10Regex.test(r));
-  const hasPlaceholders = registrations.some(r =>
-    typeof r === 'string' && (r.includes('YOUR_') || r.includes('PLACEHOLDER'))
+  const extractedRegs = registrations.map(r => {
+    if (typeof r === 'string') return r;
+    if (typeof r === 'object' && r.agentRegistry) return r.agentRegistry;
+    return '';
+  });
+  const validRegs = extractedRegs.filter(r => caip10Regex.test(r));
+  const hasPlaceholders = extractedRegs.some(r =>
+    r.includes('YOUR_') || r.includes('PLACEHOLDER')
   );
 
   if (hasPlaceholders) {
@@ -343,6 +363,32 @@ function checkWalletCaip10(metadata: Record<string, unknown> | null): CheckResul
 /**
  * Check 6: X402_WALLET_REQUIRED (5 points)
  */
+/**
+ * Extract wallet address from metadata (checks multiple locations)
+ */
+function extractWallet(metadata: Record<string, unknown>): string | null {
+  // Direct wallet field
+  if (metadata.wallet && typeof metadata.wallet === 'string') return metadata.wallet;
+  // Registrations with CAIP-10 → extract address
+  const regs = metadata.registrations as Array<{ agentRegistry?: string }> | undefined;
+  if (regs && Array.isArray(regs)) {
+    for (const r of regs) {
+      const reg = typeof r === 'string' ? r : r.agentRegistry;
+      if (reg) {
+        const match = reg.match(/0x[a-fA-F0-9]{40}/);
+        if (match) return match[0]; // registry address, not wallet — but it's something
+      }
+    }
+  }
+  // x402 signals endpoint service
+  const services = metadata.services as Array<{ name?: string; endpoint?: string }> | undefined;
+  if (services) {
+    const x402Svc = services.find(s => s.name?.includes('x402'));
+    if (x402Svc?.endpoint) return 'declared-via-service';
+  }
+  return null;
+}
+
 function checkX402WalletRequired(metadata: Record<string, unknown> | null): CheckResult {
   const check: CheckResult = {
     check: 'X402_WALLET_REQUIRED',
@@ -359,20 +405,19 @@ function checkX402WalletRequired(metadata: Record<string, unknown> | null): Chec
   }
 
   const x402Support = metadata.x402Support as boolean | undefined;
-  const wallet = metadata.wallet as string | undefined;
 
   if (!x402Support) {
-    // x402 not declared — pass by default
     check.points = 5;
     check.passed = true;
     check.details = 'x402Support not declared';
     return check;
   }
 
+  const wallet = extractWallet(metadata);
   if (wallet) {
     check.points = 5;
     check.passed = true;
-    check.details = 'x402Support=true and wallet present';
+    check.details = 'x402Support=true and wallet/payment info present';
   } else {
     check.details = 'x402Support=true but no wallet declared';
   }
@@ -846,11 +891,11 @@ function checkX402WalletConsistent(metadata: Record<string, unknown> | null): Ch
     return check;
   }
 
-  const wallet = metadata?.wallet as string | undefined;
-  if (wallet && /0x[a-fA-F0-9]{40}/.test(wallet)) {
+  const wallet = metadata ? extractWallet(metadata) : null;
+  if (wallet) {
     check.points = 5;
     check.passed = true;
-    check.details = 'Wallet declared and valid for x402 payments';
+    check.details = 'Wallet/payment info declared for x402';
   } else {
     check.details = 'x402 enabled but wallet missing or invalid';
   }
