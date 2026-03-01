@@ -381,6 +381,25 @@ model HeartbeatLog {
 }
 
 // ============================================
+// AUTHENTICATION NONCES (Anti-Replay)
+// ============================================
+
+/// Nonce for wallet signature authentication (prevents replay attacks)
+model AuthNonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique
+  address   String   // wallet address that requested the nonce
+  used      Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([nonce])
+  @@index([address])
+  @@index([expiresAt])
+  @@map("auth_nonces")
+}
+
+// ============================================
 // TRANSACTION VOLUME TRACKING
 // ============================================
 

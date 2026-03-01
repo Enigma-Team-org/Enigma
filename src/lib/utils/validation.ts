@@ -75,6 +75,7 @@ export const createRatingSchema = z.object({
     .optional(),
   signature: z.string().min(1, 'Signature is required'),
   userAddress: addressSchema,
+  nonce: z.string().uuid('Invalid nonce format').optional(),
 });
 
 /**
@@ -110,6 +111,7 @@ export const createReportSchema = z.object({
     .trim(),
   signature: z.string().min(1, 'Signature is required'),
   userAddress: addressSchema,
+  nonce: z.string().uuid('Invalid nonce format').optional(),
 });
 
 // ============================================

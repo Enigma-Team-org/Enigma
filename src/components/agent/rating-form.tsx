@@ -13,7 +13,6 @@ interface RatingFormProps {
   agentAddress: string;
 }
 
-const SIGN_MESSAGE = 'Sign this message to verify your wallet ownership on Enigma';
 const MAX_COMMENT_LENGTH = 280;
 
 export function RatingForm({ agentAddress }: RatingFormProps) {
@@ -26,7 +25,7 @@ export function RatingForm({ agentAddress }: RatingFormProps) {
   const [comment, setComment] = useState('');
 
   const submitMutation = useMutation({
-    mutationFn: async (data: { score: number; comment?: string; signature: string; userAddress: string }) => {
+    mutationFn: async (data: { score: number; comment?: string; signature: string; userAddress: string; nonce: string }) => {
       const res = await fetch(`/api/v1/agents/${agentAddress}/ratings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,13 +60,29 @@ export function RatingForm({ agentAddress }: RatingFormProps) {
     }
 
     try {
-      const signature = await signMessageAsync({ message: SIGN_MESSAGE });
+      // Step 1: Request nonce from server (anti-replay)
+      const nonceRes = await fetch('/api/v1/auth/nonce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      if (!nonceRes.ok) {
+        toast.error('Failed to get authentication nonce');
+        return;
+      }
+      const { data: nonceData } = await nonceRes.json();
+
+      // Step 2: Sign the message that includes the nonce
+      const signature = await signMessageAsync({ message: nonceData.message });
       const trimmedComment = comment.trim();
+
+      // Step 3: Submit with nonce for replay protection
       submitMutation.mutate({
         score,
         ...(trimmedComment && { comment: trimmedComment }),
         signature,
         userAddress: address,
+        nonce: nonceData.nonce,
       });
     } catch {
       toast.error('Signature rejected');

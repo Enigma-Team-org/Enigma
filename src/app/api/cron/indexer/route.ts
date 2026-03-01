@@ -5,6 +5,7 @@ import { syncAgentsFromRoutescan, refreshAllMetadata } from '@/services/routesca
 import { recalculateAllScores } from '@/services/trust-score-service';
 import { syncTransactionVolumes } from '@/services/transaction-volume-service';
 import { syncRatingsFromReputation } from '@/services/reputation-indexer-service';
+import { cleanupExpiredNonces } from '@/lib/utils/auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
@@ -63,6 +64,12 @@ export async function GET(request: NextRequest) {
     // Step 4: Recalculate trust scores for all agents
     const updatedScores = await recalculateAllScores();
 
+    // Housekeeping: cleanup expired nonces
+    const noncesDeleted = await cleanupExpiredNonces().catch((err) => {
+      logger.error({ error: err }, 'Nonce cleanup failed (non-blocking)');
+      return 0;
+    });
+
     const duration = Date.now() - startTime;
 
     const stats = {
@@ -75,6 +82,7 @@ export async function GET(request: NextRequest) {
       volumes: volumeResult,
       ratings: ratingsResult,
       trustScoresUpdated: updatedScores,
+      noncesDeleted,
       duration: `${(duration / 1000).toFixed(2)}s`,
     };
 

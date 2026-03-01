@@ -19,10 +19,22 @@ const REGISTRY_ADDRESSES = {
 
 /**
  * GET /api/v1/indexer/debug
- * Debug endpoint to check event reading
+ * Debug endpoint to check event reading.
+ * Protected by CRON_SECRET in production.
  */
 export async function GET(_request: NextRequest) {
   try {
+    // Verify cron secret in production
+    const authHeader = _request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (process.env.NODE_ENV === 'production' && cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        logger.warn('Unauthorized debug endpoint access attempt');
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
+
     const registryAddress = isMainnet()
       ? REGISTRY_ADDRESSES.mainnet.identity
       : REGISTRY_ADDRESSES.testnet.identity;
