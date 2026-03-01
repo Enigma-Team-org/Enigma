@@ -1037,7 +1037,7 @@ export async function validateAgent(agentAddress: string): Promise<ValidationRes
     duration,
   };
 
-  // Save to database
+  // Save validation result to database
   await prisma.sentinelValidation.create({
     data: {
       agentAddress: normalizedAddress,
@@ -1052,6 +1052,25 @@ export async function validateAgent(agentAddress: string): Promise<ValidationRes
       checks: JSON.parse(JSON.stringify(checks)),
     },
   });
+
+  // Update agent status based on verdict
+  // Only promote to VERIFIED if PASS; demote to PENDING if PARTIAL/FAIL
+  // Never touch FLAGGED or SUSPENDED (community/admin actions)
+  if (agent.status !== 'FLAGGED' && agent.status !== 'SUSPENDED') {
+    const newStatus = finalVerdict === 'PASS' ? 'VERIFIED' : 'PENDING';
+    if (agent.status !== newStatus) {
+      await prisma.agent.update({
+        where: { address: normalizedAddress },
+        data: { status: newStatus },
+      });
+      logger.info({
+        agentAddress: normalizedAddress,
+        oldStatus: agent.status,
+        newStatus,
+        verdict: finalVerdict,
+      }, 'Agent status updated by Sentinel');
+    }
+  }
 
   logger.info({
     agentAddress: normalizedAddress,
