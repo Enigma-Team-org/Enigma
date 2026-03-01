@@ -497,26 +497,33 @@ enum PaymentType {
   TRUST_SCORE_QUERY
   SENTINEL_VALIDATION
   DEEP_ANALYSIS
+  MARKETPLACE_FEE
 }
 
 /// x402 Payment record
 model Payment {
-  id             String        @id @default(uuid())
+  id             String        @id @default(cuid())
+
   payerAddress   String        @map("payer_address")
+  agentAddress   String?       @map("agent_address")
+
   type           PaymentType
   amountUsd      Decimal       @map("amount_usd") @db.Decimal(18, 6)
+  feeUsd         Decimal       @map("fee_usd") @db.Decimal(18, 6) @default(0)
+  burnUsd        Decimal       @map("burn_usd") @db.Decimal(18, 6) @default(0)
+
   tokenAddress   String        @map("token_address")
+  tokenSymbol    String        @map("token_symbol") @default("USDC")
   chainId        Int           @map("chain_id")
-  txHash         String?       @map("tx_hash")
-  status         PaymentStatus @default(PENDING)
+
+  txHash         String?       @unique @map("tx_hash")
   facilitatorRef String?       @map("facilitator_ref")
 
-  // What was paid for
-  agentAddress String? @map("agent_address")
+  status         PaymentStatus @default(PENDING)
 
-  // Timestamps
-  createdAt   DateTime  @default(now()) @map("created_at")
-  completedAt DateTime? @map("completed_at")
+  expiresAt      DateTime      @map("expires_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@index([payerAddress])
   @@index([status])

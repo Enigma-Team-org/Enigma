@@ -13,8 +13,9 @@ const txHash = z
  */
 export const createPaymentSchema = z.object({
   payerAddress: ethereumAddress,
-  type: z.enum(['TRUST_SCORE_QUERY', 'SENTINEL_VALIDATION', 'DEEP_ANALYSIS']),
+  type: z.enum(['TRUST_SCORE_QUERY', 'SENTINEL_VALIDATION', 'DEEP_ANALYSIS', 'MARKETPLACE_FEE']),
   tokenAddress: ethereumAddress,
+  tokenSymbol: z.enum(['USDC', 'EURC']).default('USDC'),
   chainId: z.number().int().positive(),
   agentAddress: ethereumAddress.optional(),
 });
@@ -23,7 +24,7 @@ export const createPaymentSchema = z.object({
  * Schema for POST /api/v1/payments/verify
  */
 export const verifyPaymentSchema = z.object({
-  paymentId: z.string().uuid(),
+  paymentId: z.string().min(1),
   txHash,
 });
 

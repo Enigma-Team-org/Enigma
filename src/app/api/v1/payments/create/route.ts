@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { payerAddress, type, tokenAddress, chainId, agentAddress } = parsed.data;
+    const { payerAddress, type, tokenAddress, tokenSymbol, chainId, agentAddress } = parsed.data;
     const priceUsd = getServicePrice(type);
 
     const payment = await createPayment({
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       type,
       amountUsd: priceUsd,
       tokenAddress,
+      tokenSymbol,
       chainId,
       agentAddress,
     });
@@ -35,7 +36,10 @@ export async function POST(request: NextRequest) {
         paymentId: payment.id,
         type: payment.type,
         amountUsd: priceUsd,
+        feeUsd: payment.feeUsd,
+        burnUsd: payment.burnUsd,
         status: payment.status,
+        expiresAt: payment.expiresAt,
       },
       error: null,
     }, { status: 201 });

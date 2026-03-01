@@ -73,6 +73,12 @@ export const SERVICE_PRICES: ServicePrice[] = [
     priceUsd: '0.50',
     description: 'Complete TRACER + Sentinel analysis with all dimensions',
   },
+  {
+    type: 'MARKETPLACE_FEE',
+    label: 'Marketplace Fee',
+    priceUsd: '0.00',
+    description: 'Variable fee for marketplace transactions (1-2%)',
+  },
 ];
 
 /**

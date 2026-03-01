@@ -6,6 +6,9 @@ const log = logger.child({ module: 'payment-service' });
 
 const PAYMENT_VALIDITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+const FEE_RATE = 0.02;    // 2% platform fee
+const BURN_RATE = 0.10;   // 10% of fee goes to burn
+
 /**
  * Create a new payment record
  */
@@ -14,22 +17,31 @@ export async function createPayment(params: {
   type: PaymentType;
   amountUsd: string;
   tokenAddress: string;
+  tokenSymbol?: string;
   chainId: number;
   agentAddress?: string;
 }) {
+  const amount = parseFloat(params.amountUsd);
+  const feeUsd = (amount * FEE_RATE).toFixed(6);
+  const burnUsd = (parseFloat(feeUsd) * BURN_RATE).toFixed(6);
+
   const payment = await prisma.payment.create({
     data: {
       payerAddress: params.payerAddress.toLowerCase(),
       type: params.type,
       amountUsd: params.amountUsd,
+      feeUsd,
+      burnUsd,
       tokenAddress: params.tokenAddress,
+      tokenSymbol: params.tokenSymbol ?? 'USDC',
       chainId: params.chainId,
       agentAddress: params.agentAddress?.toLowerCase(),
       status: 'PENDING',
+      expiresAt: new Date(Date.now() + PAYMENT_VALIDITY_MS),
     },
   });
 
-  log.info({ paymentId: payment.id, type: params.type }, 'Payment created');
+  log.info({ paymentId: payment.id, type: params.type, feeUsd, burnUsd }, 'Payment created');
   return payment;
 }
 
@@ -42,7 +54,6 @@ export async function completePayment(paymentId: string, txHash: string) {
     data: {
       status: 'COMPLETED',
       txHash,
-      completedAt: new Date(),
     },
   });
 
@@ -71,17 +82,15 @@ export async function hasValidPayment(
   type: PaymentType,
   agentAddress?: string
 ): Promise<boolean> {
-  const cutoff = new Date(Date.now() - PAYMENT_VALIDITY_MS);
-
   const payment = await prisma.payment.findFirst({
     where: {
       payerAddress: payerAddress.toLowerCase(),
       type,
       status: 'COMPLETED',
-      completedAt: { gte: cutoff },
+      expiresAt: { gte: new Date() },
       ...(agentAddress ? { agentAddress: agentAddress.toLowerCase() } : {}),
     },
-    orderBy: { completedAt: 'desc' },
+    orderBy: { createdAt: 'desc' },
   });
 
   return payment !== null;

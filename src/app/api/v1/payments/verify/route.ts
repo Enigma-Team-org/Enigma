@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
           paymentId: payment.id,
           status: payment.status,
           txHash: payment.txHash,
-          completedAt: payment.completedAt,
+          updatedAt: payment.updatedAt,
         },
         error: null,
       });
