@@ -30,6 +30,14 @@ export interface CombinedScoreBreakdown {
     correlation: { score: number; weighted: number };
     rl: { score: number; weighted: number };
   };
+  tracerDimensions: {
+    trust: { score: number; weight: number; contribution: number };
+    reliability: { score: number; weight: number; contribution: number };
+    autonomy: { score: number; weight: number; contribution: number };
+    capability: { score: number; weight: number; contribution: number };
+    economics: { score: number; weight: number; contribution: number };
+    reputation: { score: number; weight: number; contribution: number };
+  };
   lastUpdated: Date;
 }
 
@@ -388,6 +396,14 @@ export async function calculateCombinedTrustScore(
         score: rl,
         weighted: Math.round(rl * COMBINED_WEIGHTS.rl),
       },
+    },
+    tracerDimensions: {
+      trust: { score: tracer.dimensions.trust.score, weight: tracer.dimensions.trust.weight, contribution: tracer.dimensions.trust.contribution },
+      reliability: { score: tracer.dimensions.reliability.score, weight: tracer.dimensions.reliability.weight, contribution: tracer.dimensions.reliability.contribution },
+      autonomy: { score: tracer.dimensions.autonomy.score, weight: tracer.dimensions.autonomy.weight, contribution: tracer.dimensions.autonomy.contribution },
+      capability: { score: tracer.dimensions.capability.score, weight: tracer.dimensions.capability.weight, contribution: tracer.dimensions.capability.contribution },
+      economics: { score: tracer.dimensions.economics.score, weight: tracer.dimensions.economics.weight, contribution: tracer.dimensions.economics.contribution },
+      reputation: { score: tracer.dimensions.reputation.score, weight: tracer.dimensions.reputation.weight, contribution: tracer.dimensions.reputation.contribution },
     },
     lastUpdated: new Date(),
   };

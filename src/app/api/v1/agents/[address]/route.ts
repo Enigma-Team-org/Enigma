@@ -122,6 +122,14 @@ export async function GET(
           correlation: { score: 0, weighted: 0 },
           rl: { score: 0, weighted: 0 },
         },
+        tracerDimensions: combined?.tracerDimensions ?? {
+          trust: { score: 0, weight: 0.20, contribution: 0 },
+          reliability: { score: 0, weight: 0.20, contribution: 0 },
+          autonomy: { score: 0, weight: 0.15, contribution: 0 },
+          capability: { score: 0, weight: 0.20, contribution: 0 },
+          economics: { score: 0, weight: 0.10, contribution: 0 },
+          reputation: { score: 0, weight: 0.15, contribution: 0 },
+        },
         lastUpdated: trustScore.lastUpdated.toISOString(),
       },
 

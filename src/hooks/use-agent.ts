@@ -35,6 +35,15 @@ export interface PillarComponent {
 }
 
 /**
+ * TRACER dimension score
+ */
+export interface TracerDimension {
+  score: number;
+  weight: number;
+  contribution: number;
+}
+
+/**
  * Sentinel validation summary
  */
 export interface SentinelSummary {
@@ -72,6 +81,14 @@ export interface AgentDetail {
       community: PillarComponent;
       correlation: PillarComponent;
       rl: PillarComponent;
+    };
+    tracerDimensions: {
+      trust: TracerDimension;
+      reliability: TracerDimension;
+      autonomy: TracerDimension;
+      capability: TracerDimension;
+      economics: TracerDimension;
+      reputation: TracerDimension;
     };
     lastUpdated: string;
   };

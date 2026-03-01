@@ -479,3 +479,48 @@ model SentinelValidation {
   @@index([verdict])
   @@map("sentinel_validations")
 }
+
+// ============================================
+// ENIGMA ECONOMY - PAYMENTS (x402)
+// ============================================
+
+/// Payment status
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+/// Payment type (service being paid for)
+enum PaymentType {
+  TRUST_SCORE_QUERY
+  SENTINEL_VALIDATION
+  DEEP_ANALYSIS
+}
+
+/// x402 Payment record
+model Payment {
+  id             String        @id @default(uuid())
+  payerAddress   String        @map("payer_address")
+  type           PaymentType
+  amountUsd      Decimal       @map("amount_usd") @db.Decimal(18, 6)
+  tokenAddress   String        @map("token_address")
+  chainId        Int           @map("chain_id")
+  txHash         String?       @map("tx_hash")
+  status         PaymentStatus @default(PENDING)
+  facilitatorRef String?       @map("facilitator_ref")
+
+  // What was paid for
+  agentAddress String? @map("agent_address")
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([payerAddress])
+  @@index([status])
+  @@index([agentAddress])
+  @@index([createdAt])
+  @@map("payments")
+}

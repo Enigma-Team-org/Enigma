@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink, GitBranch, Bot, BookOpen } from 'lucide-react'
 import Link from 'next/link';
 import { RatingForm } from '@/components/agent/rating-form';
 import { ReportModal } from '@/components/agent/report-modal';
+import { PaywallGate } from '@/components/payments';
 import { Spinner } from '@/components/shared/spinner';
 import { TourCta } from '@/components/tour';
 import { useAgent, type AgentDetail } from '@/hooks/use-agent';
@@ -206,11 +207,11 @@ export default function AgentProfilePage() {
     : '—';
 
   const snapshotStats = [
-    { label: 'SCORE V2',     value: `${agent.trustScore.v2Score}` },
-    { label: 'SENTINEL',     value: agent.trustScore.sentinel.verdict ?? '—' },
-    { label: 'TRACER',       value: `${agent.trustScore.tracerScore}` },
+    { label: 'TRUST SCORE',  value: `${agent.trustScore.v2Score}/100` },
+    { label: 'UPTIME',       value: `${agent.uptime.percentage.toFixed(1)}%` },
     { label: 'RATING',       value: agent.ratings.count > 0 ? `${agent.ratings.average.toFixed(1)} / 5` : '—' },
-    { label: 'CLASS',        value: agent.trustScore.classification.toUpperCase() },
+    { label: 'VOLUME 24H',   value: vol24hDisplay },
+    { label: 'AGE',          value: formatAge(agent.createdAt) },
   ];
 
   const breakdownRows = [
@@ -525,12 +526,33 @@ export default function AgentProfilePage() {
           {/* Trust Score v2 Breakdown */}
           <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-5">
             <div className="mb-5 flex items-center justify-between">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Trust Score v2</p>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Trust Score</p>
+                <div className="mt-1 flex items-center gap-2">
+                  {agent.trustScore.sentinel.verdict && (
+                    <span className={cn(
+                      'rounded px-1.5 py-0.5 text-[10px] font-semibold',
+                      agent.trustScore.sentinel.verdict === 'PASS'
+                        ? 'bg-[rgba(74,222,128,0.1)] text-[#4ADE80]'
+                        : agent.trustScore.sentinel.verdict === 'PARTIAL'
+                          ? 'bg-[rgba(252,211,77,0.1)] text-[#FCD34D]'
+                          : 'bg-[rgba(251,113,133,0.1)] text-[#FB7185]',
+                    )}>
+                      Sentinel {agent.trustScore.sentinel.verdict}
+                    </span>
+                  )}
+                  <span className="rounded bg-[rgba(167,139,250,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#A78BFA]">
+                    {agent.trustScore.classification}
+                  </span>
+                </div>
+              </div>
               <p className="font-data text-sm font-bold text-white">
                 {agent.trustScore.v2Score}
                 <span className="ml-0.5 text-xs font-normal text-[#475569]">/100</span>
               </p>
             </div>
+
+            {/* 4 Pillars */}
             <div className="space-y-4">
               {breakdownRows.map(({ label, score, weight, color }) => (
                 <div key={label}>
@@ -551,35 +573,25 @@ export default function AgentProfilePage() {
               ))}
             </div>
 
-            {/* Sentinel + TRACER summary */}
-            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[rgba(255,255,255,0.06)] pt-4">
-              <div className="rounded-lg bg-[rgba(255,255,255,0.03)] px-3 py-2">
-                <p className="text-[10px] uppercase tracking-widest text-[#475569]">Sentinel</p>
-                <p className="font-data mt-0.5 text-sm font-bold text-white">
-                  {agent.trustScore.sentinel.score !== null
-                    ? `${agent.trustScore.sentinel.score}/${agent.trustScore.sentinel.maxScore}`
-                    : '—'}
-                </p>
-                {agent.trustScore.sentinel.verdict && (
-                  <span className={cn(
-                    'mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                    agent.trustScore.sentinel.verdict === 'PASS'
-                      ? 'bg-[rgba(74,222,128,0.1)] text-[#4ADE80]'
-                      : agent.trustScore.sentinel.verdict === 'PARTIAL'
-                        ? 'bg-[rgba(252,211,77,0.1)] text-[#FCD34D]'
-                        : 'bg-[rgba(251,113,133,0.1)] text-[#FB7185]',
-                  )}>
-                    {agent.trustScore.sentinel.verdict}
-                  </span>
-                )}
-              </div>
-              <div className="rounded-lg bg-[rgba(255,255,255,0.03)] px-3 py-2">
-                <p className="text-[10px] uppercase tracking-widest text-[#475569]">TRACER</p>
-                <p className="font-data mt-0.5 text-sm font-bold text-white">{agent.trustScore.tracerScore}</p>
-                <span className="mt-1 inline-block rounded bg-[rgba(167,139,250,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#A78BFA]">
-                  6 dimensions
-                </span>
-              </div>
+            {/* Deep Analysis PRO — x402 Paywall */}
+            <div className="mt-5 border-t border-[rgba(255,255,255,0.06)] pt-4">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Deep Analysis PRO</p>
+              <PaywallGate
+                agentAddress={address}
+                paymentType="DEEP_ANALYSIS"
+                label="Unlock Deep Analysis"
+                description="TRACER 6 dimensions + Sentinel 27 checks + full report"
+              >
+                <div className="space-y-3 text-xs text-[#94A3B8]">
+                  <p>Full TRACER + Sentinel analysis available after payment verification.</p>
+                  <Link
+                    href={`/agents/${address}/analysis` as '/'}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.1)] px-4 py-2 text-xs font-semibold text-[#A78BFA] transition-colors hover:bg-[rgba(167,139,250,0.15)]"
+                  >
+                    View Full Report →
+                  </Link>
+                </div>
+              </PaywallGate>
             </div>
           </div>
 

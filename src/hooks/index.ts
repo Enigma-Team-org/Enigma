@@ -15,6 +15,7 @@ export {
   useAgentTrustScore,
   type AgentDetail,
   type PillarComponent,
+  type TracerDimension,
   type SentinelSummary,
 } from './use-agent';
 export {
@@ -22,3 +23,5 @@ export {
   useVisitorStats,
   type VisitorStats,
 } from './use-visitor-tracking';
+export { useCreatePayment, useVerifyPayment } from './use-payment';
+export { usePaymentHistory } from './use-payment-history';
