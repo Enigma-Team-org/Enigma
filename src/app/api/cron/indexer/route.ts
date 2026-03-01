@@ -6,6 +6,7 @@ import { recalculateAllScores } from '@/services/trust-score-service';
 import { syncTransactionVolumes } from '@/services/transaction-volume-service';
 import { syncRatingsFromReputation } from '@/services/reputation-indexer-service';
 import { cleanupExpiredNonces } from '@/lib/utils/auth';
+import { validateAllAgents } from '@/services/centinela/sentinel-validator';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
@@ -21,6 +22,7 @@ const logger = createLogger('cron-indexer');
  * 2. Sync transaction volumes from Snowtrace API
  * 3. Import on-chain ratings from Reputation Registry
  * 4. Recalculate trust scores for ALL agents
+ * 5. Run Super Sentinel validation (27 checks) on all agents
  *
  * Protected by Vercel Cron Secret in production
  */
@@ -64,6 +66,12 @@ export async function GET(request: NextRequest) {
     // Step 4: Recalculate trust scores for all agents
     const updatedScores = await recalculateAllScores();
 
+    // Step 5: Run Super Sentinel validation on all agents (non-blocking)
+    const validationResult = await validateAllAgents().catch((err) => {
+      logger.error({ error: err }, 'Sentinel validation failed (non-blocking)');
+      return { validated: 0, passed: 0, partial: 0, failed: 0, errors: 0 };
+    });
+
     // Housekeeping: cleanup expired nonces
     const noncesDeleted = await cleanupExpiredNonces().catch((err) => {
       logger.error({ error: err }, 'Nonce cleanup failed (non-blocking)');
@@ -82,6 +90,7 @@ export async function GET(request: NextRequest) {
       volumes: volumeResult,
       ratings: ratingsResult,
       trustScoresUpdated: updatedScores,
+      sentinel: validationResult,
       noncesDeleted,
       duration: `${(duration / 1000).toFixed(2)}s`,
     };

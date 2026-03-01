@@ -2,6 +2,7 @@ import { prisma } from '@/lib/database/prisma';
 import { createLogger } from '@/lib/utils/logger';
 import { calculateTrustScore, type TrustScoreBreakdown } from './trust-score-service';
 import { calculateTRACERScore, type AgentData, type TRACERBreakdown } from './tracer-score-service';
+import { getLatestValidation } from './centinela/sentinel-validator';
 
 const logger = createLogger('combined-trust-score');
 
@@ -20,6 +21,8 @@ export interface CombinedScoreBreakdown {
   v1Score: number;
   v2Score: number;
   tracerScore: number;
+  sentinelScore: number | null;
+  sentinelVerdict: string | null;
   classification: string;
   pillars: {
     infrastructure: { score: number; weighted: number };
@@ -32,18 +35,31 @@ export interface CombinedScoreBreakdown {
 
 /**
  * Calculate Infrastructure pillar (50%)
- * Combines v1 reliability metrics + TRACER reliability
+ * Combines v1 reliability metrics + TRACER reliability + Sentinel validation
  */
 function calculateInfrastructure(
   v1: TrustScoreBreakdown,
-  tracer: TRACERBreakdown
+  tracer: TRACERBreakdown,
+  sentinelNormalized: number | null
 ): number {
   const uptimeV1 = v1.breakdown.uptime.score;
   const proxyV1 = v1.breakdown.proxy.score;
   const reliabilityTracer = tracer.dimensions.reliability.score;
   const ozMatch = v1.breakdown.ozMatch.score;
 
-  // Weighted blend of infrastructure signals
+  if (sentinelNormalized !== null) {
+    // With Sentinel data: blend all 5 signals
+    const score = Math.round(
+      uptimeV1 * 0.20 +
+      reliabilityTracer * 0.20 +
+      proxyV1 * 0.15 +
+      ozMatch * 0.10 +
+      sentinelNormalized * 0.35 // Sentinel is the strongest infra signal
+    );
+    return Math.min(score, 100);
+  }
+
+  // Without Sentinel: original 4-signal blend
   const score = Math.round(
     uptimeV1 * 0.30 +
     reliabilityTracer * 0.30 +
@@ -223,8 +239,14 @@ export async function calculateCombinedTrustScore(
   const agentData = await buildAgentDataForTracer(normalizedAddress);
   const tracer = calculateTRACERScore(agentData);
 
+  // Get Sentinel validation if available
+  const sentinelValidation = await getLatestValidation(normalizedAddress);
+  const sentinelNormalized = sentinelValidation
+    ? Math.round((sentinelValidation.totalScore / sentinelValidation.maxScore) * 100)
+    : null;
+
   // Calculate 4 pillars
-  const infrastructure = calculateInfrastructure(v1, tracer);
+  const infrastructure = calculateInfrastructure(v1, tracer, sentinelNormalized);
   const community = calculateCommunity(v1, tracer);
   const correlation = calculateCorrelation(tracer);
   const rl = await calculateRL(normalizedAddress);
@@ -247,6 +269,7 @@ export async function calculateCombinedTrustScore(
     address: normalizedAddress,
     v1: v1.score,
     tracer: tracer.score,
+    sentinel: sentinelNormalized,
     v2: v2Score,
     classification,
   });
@@ -255,6 +278,8 @@ export async function calculateCombinedTrustScore(
     v1Score: v1.score,
     v2Score,
     tracerScore: tracer.score,
+    sentinelScore: sentinelValidation?.totalScore ?? null,
+    sentinelVerdict: sentinelValidation?.verdict ?? null,
     classification,
     pillars: {
       infrastructure: {

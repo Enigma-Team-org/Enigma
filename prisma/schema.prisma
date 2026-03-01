@@ -105,8 +105,9 @@ model Agent {
   reports            Report[]
   scannerResults     ScannerResult[]
   watchlistItems     WatchlistItem[]
-  heartbeatLogs      HeartbeatLog[]
-  transactionVolumes TransactionVolume[]
+  heartbeatLogs         HeartbeatLog[]
+  transactionVolumes    TransactionVolume[]
+  sentinelValidations   SentinelValidation[]
 
   @@index([type])
   @@index([status])
@@ -434,4 +435,47 @@ model TransactionVolume {
   @@index([agentAddress])
   @@index([period])
   @@map("transaction_volumes")
+}
+
+// ============================================
+// SUPER SENTINEL VALIDATION
+// ============================================
+
+/// Validation verdict
+enum ValidationVerdict {
+  PASS
+  PARTIAL
+  FAIL
+}
+
+/// Super Sentinel validation result for an agent
+model SentinelValidation {
+  id           String            @id @default(uuid())
+  agentAddress String            @map("agent_address")
+
+  // Overall result
+  totalScore   Int               @map("total_score") // 0-120
+  maxScore     Int               @map("max_score") // max achievable (excludes N/A)
+  verdict      ValidationVerdict
+
+  // Category scores
+  metadataScore       Int @default(0) @map("metadata_score") // max 40
+  infrastructureScore Int @default(0) @map("infrastructure_score") // max 35
+  awsScore            Int @default(0) @map("aws_score") // max 25
+  x402Score            Int @default(0) @map("x402_score") // max 10
+  bonusScore          Int @default(0) @map("bonus_score") // max 10
+
+  // Individual check results (JSON array of {check, points, maxPoints, passed, details})
+  checks Json
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  agent Agent @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+
+  @@index([agentAddress])
+  @@index([createdAt])
+  @@index([verdict])
+  @@map("sentinel_validations")
 }
