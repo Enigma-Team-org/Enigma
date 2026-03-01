@@ -6,21 +6,21 @@ import { Shield, Eye, Zap } from 'lucide-react';
 const features = [
   {
     icon: Shield,
-    title: 'Trust Score',
+    title: 'Trust Score v2',
     description:
-      'Multi-factor scoring combining on-chain volume, proxy detection, uptime monitoring, OpenZeppelin compliance, and community ratings.',
+      'Four-pillar scoring system: Infrastructure (50%), Community (20%), Correlation (15%), and Reinforcement Learning (15%). Combines on-chain data, TRACER analysis, and Sentinel validation.',
   },
   {
     icon: Eye,
-    title: 'Centinela Verification',
+    title: 'Super Sentinel',
     description:
-      'Automated contract analysis engine that monitors heartbeat, detects proxy patterns, and matches against known OpenZeppelin implementations.',
+      '27-check automated validation engine covering metadata integrity, infrastructure health, TLS, A2A/MCP endpoints, x402 payment flows, and latency benchmarks.',
   },
   {
     icon: Zap,
-    title: 'Real-time Monitoring',
+    title: 'TRACER Score',
     description:
-      'Continuous heartbeat checks, uptime tracking, and volume analysis ensure you always have the latest data on agent health.',
+      'Six-dimension agent intelligence: Trust, Reliability, Autonomy, Capability, Economics, and Reputation. Real-time cross-validation with Sentinel data.',
   },
 ];
 

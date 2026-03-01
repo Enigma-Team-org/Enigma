@@ -14,7 +14,8 @@ export {
   useAgent,
   useAgentTrustScore,
   type AgentDetail,
-  type ScoreComponent,
+  type PillarComponent,
+  type SentinelSummary,
 } from './use-agent';
 export {
   useVisitorTracking,

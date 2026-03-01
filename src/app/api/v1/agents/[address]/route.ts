@@ -6,6 +6,8 @@ import { createLogger } from '@/lib/utils/logger';
 import { prisma } from '@/lib/database/prisma';
 import { getTrustScoreBreakdown } from '@/services/trust-score-service';
 import { calculateUptime } from '@/services/centinela/heartbeat-service';
+import { calculateCombinedTrustScore } from '@/services/combined-trust-score-service';
+import { getLatestValidation } from '@/services/centinela/sentinel-validator';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,10 +65,12 @@ export async function GET(
       throw new NotFoundError(`Agent not found: ${address}`);
     }
 
-    // Fetch trust score breakdown and uptime data in parallel
-    const [trustScore, uptimeData] = await Promise.all([
+    // Fetch all scoring data in parallel
+    const [trustScore, uptimeData, combined, sentinelValidation] = await Promise.all([
       getTrustScoreBreakdown(normalizedAddress),
       calculateUptime(normalizedAddress, '7d'),
+      calculateCombinedTrustScore(normalizedAddress).catch(() => null),
+      getLatestValidation(normalizedAddress).catch(() => null),
     ]);
 
     // Process volume data by period
@@ -101,10 +105,23 @@ export async function GET(
       createdAt: agent.created_at.toISOString(),
       updatedAt: agent.updated_at.toISOString(),
 
-      // Trust score
+      // Trust score (v2 with pillars + v1 as base)
       trustScore: {
-        score: trustScore.score,
-        breakdown: trustScore.breakdown,
+        score: combined?.v2Score ?? trustScore.score,
+        v2Score: combined?.v2Score ?? trustScore.score,
+        tracerScore: combined?.tracerScore ?? 0,
+        classification: combined?.classification ?? 'unknown',
+        sentinel: {
+          score: sentinelValidation?.totalScore ?? null,
+          maxScore: sentinelValidation?.maxScore ?? null,
+          verdict: sentinelValidation?.verdict ?? null,
+        },
+        pillars: combined?.pillars ?? {
+          infrastructure: { score: 0, weighted: 0 },
+          community: { score: 0, weighted: 0 },
+          correlation: { score: 0, weighted: 0 },
+          rl: { score: 0, weighted: 0 },
+        },
         lastUpdated: trustScore.lastUpdated.toISOString(),
       },
 
