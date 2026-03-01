@@ -25,3 +25,4 @@ export {
 } from './use-visitor-tracking';
 export { useCreatePayment, useVerifyPayment } from './use-payment';
 export { usePaymentHistory } from './use-payment-history';
+export { useBurnStats } from './use-burn-stats';

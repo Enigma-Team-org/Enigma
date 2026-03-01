@@ -15,6 +15,7 @@ import {
   ChevronRight,
   GitBranch,
   BookOpen,
+  Flame,
   X,
 } from 'lucide-react';
 import { useAgentStats } from '@/hooks/use-agent-stats';
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/',               label: 'Home',     icon: Home,            exact: true  },
   { href: '/scanner',        label: 'Overview', icon: LayoutDashboard, exact: true  },
   { href: '/scanner/agents', label: 'Agents',   icon: Bot,             exact: false },
+  { href: '/burn',           label: 'Burn',     icon: Flame,           exact: true  },
   { href: '/register',       label: 'Register', icon: PlusCircle,      exact: true  },
   { href: '/docs',           label: 'Docs',     icon: BookOpen,        exact: false },
 ] as const;
