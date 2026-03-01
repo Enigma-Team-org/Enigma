@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/indexer",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/burn-indexer",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/gdp-snapshot",
+      "schedule": "5 0 * * *"
     }
   ]
 }

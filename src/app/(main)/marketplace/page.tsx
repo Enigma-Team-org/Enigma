@@ -32,7 +32,8 @@ export default function MarketplacePage() {
       const res = await fetch('/api/v1/marketplace/services');
       if (!res.ok) throw new Error('Failed to fetch services');
       const json = await res.json();
-      return json.data ?? json;
+      // API returns { data: { data: [...], pagination: {...} }, error: null }
+      return json.data?.data ?? json.data ?? json;
     },
     staleTime: 5 * 60 * 1000,
   });
