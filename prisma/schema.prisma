@@ -110,6 +110,11 @@ model Agent {
   sentinelValidations   SentinelValidation[]
   services              AgentService[]
 
+  // GDP Engine Phase 1 relations
+  endpoints             AgentEndpoint[]
+  transactionsSent      AgentTransaction[] @relation("transactions_sent")
+  transactionsReceived  AgentTransaction[] @relation("transactions_received")
+
   @@index([type])
   @@index([status])
   @@index([trust_score(sort: Desc)])
@@ -693,9 +698,90 @@ model GdpSnapshot {
   newAgents       Int      @default(0) @map("new_agents")
   totalServices   Int      @default(0) @map("total_services")
 
+  // A2A economic metrics (GDP Engine Phase 1)
+  totalA2aTransactions  Int      @default(0) @map("total_a2a_transactions")
+  a2aVolumeUsd          Decimal  @default(0) @map("a2a_volume_usd") @db.Decimal(18, 6)
+
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@unique([date])
   @@index([date])
   @@map("gdp_snapshots")
+}
+
+// ============================================
+// GDP ENGINE - AGENT-TO-AGENT DISCOVERY
+// ============================================
+
+/// Endpoint protocol type for agent-to-agent discovery
+enum EndpointType {
+  A2A
+  MCP
+  REST
+  X402
+}
+
+/// Agent transaction status
+enum AgentTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+/// Discoverable endpoint registered by an agent
+model AgentEndpoint {
+  id              String       @id @default(cuid())
+  agentAddress    String       @map("agent_address")
+  type            EndpointType
+  url             String
+  capabilities    String[]
+  pricePerCall    Decimal      @map("price_per_call") @db.Decimal(18, 6)
+  paymentToken    String       @default("USDC") @map("payment_token")
+  isActive        Boolean      @default(true) @map("is_active")
+  lastHealthCheck DateTime?    @map("last_health_check")
+  latencyMs       Int?         @map("latency_ms")
+
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  agent           Agent        @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+  transactionsAsTarget AgentTransaction[] @relation("endpoint_transactions")
+
+  @@unique([agentAddress, type, url])
+  @@index([agentAddress])
+  @@index([type])
+  @@index([isActive])
+  @@map("agent_endpoints")
+}
+
+/// Record of an agent-to-agent economic transaction
+model AgentTransaction {
+  id               String                  @id @default(cuid())
+  fromAgentAddress String                  @map("from_agent_address")
+  toAgentAddress   String                  @map("to_agent_address")
+  endpointId       String                  @map("endpoint_id")
+
+  amount           Decimal                 @db.Decimal(18, 6)
+  token            String                  @default("USDC")
+  txHash           String?                 @unique @map("tx_hash")
+  x402Header       String?                 @map("x402_header")
+
+  status           AgentTransactionStatus  @default(PENDING)
+  responseTimeMs   Int?                    @map("response_time_ms")
+
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  // Relations
+  fromAgent        Agent                   @relation("transactions_sent", fields: [fromAgentAddress], references: [address], onDelete: Cascade)
+  toAgent          Agent                   @relation("transactions_received", fields: [toAgentAddress], references: [address], onDelete: Cascade)
+  endpoint         AgentEndpoint           @relation("endpoint_transactions", fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([fromAgentAddress])
+  @@index([toAgentAddress])
+  @@index([endpointId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("agent_transactions")
 }

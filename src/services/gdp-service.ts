@@ -27,7 +27,7 @@ export async function calculateDailySnapshot(date: Date) {
 
   log.info({ date: start.toISOString() }, 'Calculating daily GDP snapshot');
 
-  const [payments, burns, deals, newAgents, activeAgents, totalServices] = await Promise.all([
+  const [payments, burns, deals, a2aTransactions, newAgents, activeAgents, totalServices] = await Promise.all([
     // Completed payments for the date
     prisma.payment.aggregate({
       where: {
@@ -53,6 +53,15 @@ export async function calculateDailySnapshot(date: Date) {
       },
       _count: { id: true },
       _sum: { agreedPriceUsd: true },
+    }),
+    // A2A transactions for the date (GDP Engine Phase 1)
+    prisma.agentTransaction.aggregate({
+      where: {
+        status: 'COMPLETED',
+        createdAt: { gte: start, lte: end },
+      },
+      _count: { id: true },
+      _sum: { amount: true },
     }),
     // New agents registered on this date
     prisma.agent.count({
@@ -81,6 +90,8 @@ export async function calculateDailySnapshot(date: Date) {
       burnVolumeUsd: burns._sum.amountInUsd ?? new Decimal(0),
       totalDeals: deals._count.id ?? 0,
       dealVolumeUsd: deals._sum.agreedPriceUsd ?? new Decimal(0),
+      totalA2aTransactions: a2aTransactions._count.id ?? 0,
+      a2aVolumeUsd: a2aTransactions._sum.amount ?? new Decimal(0),
       activeAgents,
       newAgents,
       totalServices,
@@ -93,6 +104,8 @@ export async function calculateDailySnapshot(date: Date) {
       burnVolumeUsd: burns._sum.amountInUsd ?? new Decimal(0),
       totalDeals: deals._count.id ?? 0,
       dealVolumeUsd: deals._sum.agreedPriceUsd ?? new Decimal(0),
+      totalA2aTransactions: a2aTransactions._count.id ?? 0,
+      a2aVolumeUsd: a2aTransactions._sum.amount ?? new Decimal(0),
       activeAgents,
       newAgents,
       totalServices,
@@ -134,6 +147,7 @@ export async function getGdpDashboard() {
         paymentVolumeUsd: true,
         burnVolumeUsd: true,
         dealVolumeUsd: true,
+        a2aVolumeUsd: true,
       },
     }),
   ]);
@@ -174,6 +188,7 @@ export async function getGdpDashboard() {
       paymentVolumeUsd: totals._sum.paymentVolumeUsd?.toString() ?? '0',
       burnVolumeUsd: totals._sum.burnVolumeUsd?.toString() ?? '0',
       dealVolumeUsd: totals._sum.dealVolumeUsd?.toString() ?? '0',
+      a2aVolumeUsd: totals._sum.a2aVolumeUsd?.toString() ?? '0',
     },
     growth,
   };
@@ -222,7 +237,8 @@ export async function getGdpKpis() {
   for (const snap of allSnapshots) {
     const dayTotal = new Decimal(snap.paymentVolumeUsd)
       .plus(snap.burnVolumeUsd)
-      .plus(snap.dealVolumeUsd);
+      .plus(snap.dealVolumeUsd)
+      .plus(snap.a2aVolumeUsd);
     totalEconomicVolume = totalEconomicVolume.plus(dayTotal);
 
     if (dayTotal.greaterThan(peakVolume)) {
@@ -246,7 +262,8 @@ export async function getGdpKpis() {
     const snap = allSnapshots[i];
     const dayTotal = new Decimal(snap.paymentVolumeUsd)
       .plus(snap.burnVolumeUsd)
-      .plus(snap.dealVolumeUsd);
+      .plus(snap.dealVolumeUsd)
+      .plus(snap.a2aVolumeUsd);
 
     if (dayTotal.greaterThan(0)) {
       currentStreak++;
