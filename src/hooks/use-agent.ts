@@ -117,6 +117,18 @@ export interface AgentDetail {
     averageResponseTimeMs: number;
   };
 
+  endpoints: Array<{
+    id: string;
+    type: string;
+    url: string;
+    capabilities: string[];
+    pricePerCall: string;
+    isActive: boolean;
+    isHealthy: boolean;
+    latencyMs: number | null;
+    lastHealthCheck: string | null;
+  }>;
+
   ratings: {
     average: number;
     count: number;

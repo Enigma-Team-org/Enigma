@@ -734,23 +734,106 @@ export default function AgentProfilePage() {
         return (
           <div className="flex flex-col gap-4">
 
-            {/* Services */}
+            {/* Services with Health Status */}
             {(agent.metadata.services ?? []).length > 0 && (
               <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-5">
                 <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Services</p>
                 <div className="flex flex-col gap-2">
-                  {agent.metadata.services!.map((svc, i) => (
-                    <div key={i} className="rounded-lg border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-white">{svc.name}</span>
-                        {svc.version && (
-                          <span className="rounded bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 font-data text-[10px] text-[#475569]">
-                            v{svc.version}
-                          </span>
+                  {agent.metadata.services!.map((svc, i) => {
+                    // Match service to registered endpoint for health data
+                    const matchedEndpoint = agent.endpoints?.find(
+                      (ep) => ep.type === svc.name || ep.url === svc.endpoint
+                    );
+                    return (
+                      <div key={i} className="rounded-lg border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-white">{svc.name}</span>
+                            {svc.version && (
+                              <span className="rounded bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 font-data text-[10px] text-[#475569]">
+                                v{svc.version}
+                              </span>
+                            )}
+                          </div>
+                          {/* Health badge */}
+                          {matchedEndpoint ? (
+                            <span className={cn(
+                              'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                              matchedEndpoint.isHealthy
+                                ? 'border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.08)] text-[#4ADE80]'
+                                : 'border-[rgba(251,113,133,0.25)] bg-[rgba(251,113,133,0.08)] text-[#FB7185]',
+                            )}>
+                              <span className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                matchedEndpoint.isHealthy ? 'bg-[#4ADE80] animate-pulse' : 'bg-[#FB7185]',
+                              )} />
+                              {matchedEndpoint.isHealthy ? 'Healthy' : 'Unhealthy'}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2 py-0.5 text-[10px] font-semibold text-[#475569]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#475569]" />
+                              Unknown
+                            </span>
+                          )}
+                        </div>
+                        {svc.endpoint && (
+                          <p className="mt-1 break-all font-data text-[11px] text-[#475569]">{svc.endpoint}</p>
+                        )}
+                        {/* Latency info */}
+                        {matchedEndpoint?.latencyMs != null && (
+                          <p className="mt-1 font-data text-[10px] text-[#475569]">
+                            Latency: <span className={cn(
+                              matchedEndpoint.latencyMs < 500 ? 'text-[#4ADE80]' : matchedEndpoint.latencyMs < 2000 ? 'text-[#FCD34D]' : 'text-[#FB7185]',
+                            )}>{matchedEndpoint.latencyMs}ms</span>
+                            {matchedEndpoint.lastHealthCheck && (
+                              <> · Last check: {formatRelativeTime(matchedEndpoint.lastHealthCheck)}</>
+                            )}
+                          </p>
                         )}
                       </div>
-                      {svc.endpoint && (
-                        <p className="mt-1 break-all font-data text-[11px] text-[#475569]">{svc.endpoint}</p>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Registered Endpoints (not in metadata) */}
+            {(agent.endpoints ?? []).filter(
+              (ep) => !(agent.metadata?.services ?? []).some(
+                (svc) => svc.name === ep.type || svc.endpoint === ep.url
+              )
+            ).length > 0 && (
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-5">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Registered Endpoints</p>
+                <div className="flex flex-col gap-2">
+                  {(agent.endpoints ?? []).filter(
+                    (ep) => !(agent.metadata?.services ?? []).some(
+                      (svc) => svc.name === ep.type || svc.endpoint === ep.url
+                    )
+                  ).map((ep) => (
+                    <div key={ep.id} className="rounded-lg border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-white">{ep.type}</span>
+                        <span className={cn(
+                          'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                          ep.isHealthy
+                            ? 'border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.08)] text-[#4ADE80]'
+                            : 'border-[rgba(251,113,133,0.25)] bg-[rgba(251,113,133,0.08)] text-[#FB7185]',
+                        )}>
+                          <span className={cn(
+                            'h-1.5 w-1.5 rounded-full',
+                            ep.isHealthy ? 'bg-[#4ADE80] animate-pulse' : 'bg-[#FB7185]',
+                          )} />
+                          {ep.isHealthy ? 'Healthy' : 'Unhealthy'}
+                        </span>
+                      </div>
+                      <p className="mt-1 break-all font-data text-[11px] text-[#475569]">{ep.url}</p>
+                      {ep.latencyMs != null && (
+                        <p className="mt-1 font-data text-[10px] text-[#475569]">
+                          Latency: <span className={cn(
+                            ep.latencyMs < 500 ? 'text-[#4ADE80]' : ep.latencyMs < 2000 ? 'text-[#FCD34D]' : 'text-[#FB7185]',
+                          )}>{ep.latencyMs}ms</span>
+                        </p>
                       )}
                     </div>
                   ))}

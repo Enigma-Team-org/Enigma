@@ -4,6 +4,8 @@ import { successResponse, handleError } from '@/lib/utils/api-helpers';
 import { ValidationError } from '@/lib/utils/errors';
 import { createLogger } from '@/lib/utils/logger';
 import { getAgents, type AgentFilters, type PaginationInput } from '@/services/agent-service';
+import { prisma } from '@/lib/database/prisma';
+import { getStarCounts } from '@/services/star-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,8 +85,19 @@ export async function GET(request: NextRequest) {
     // Fetch agents
     const result = await getAgents(filters, pagination);
 
+    // Enrich with ranking and star counts
+    const agentAddresses = result.agents.map((a) => a.address);
+    const starCounts = agentAddresses.length > 0 ? await getStarCounts(agentAddresses) : {};
+
+    // Calculate global rank: count agents with higher trust_score + 1
+    const rankCounts = await Promise.all(
+      result.agents.map((agent) =>
+        prisma.agent.count({ where: { trust_score: { gt: agent.trust_score } } })
+      )
+    );
+
     // Format response
-    const formattedAgents = result.agents.map((agent) => {
+    const formattedAgents = result.agents.map((agent, index) => {
       // Extract service names from metadata
       const meta = agent.metadata as Record<string, unknown> | null;
       const services = Array.isArray(meta?.services)
@@ -104,6 +117,8 @@ export async function GET(request: NextRequest) {
         services,
         metadata: meta,
         verified_tier: agent.verified_tier ?? null,
+        rank: rankCounts[index] + 1,
+        star_count: starCounts[agent.address] || 0,
         created_at: agent.created_at.toISOString(),
         updated_at: agent.updated_at.toISOString(),
       };

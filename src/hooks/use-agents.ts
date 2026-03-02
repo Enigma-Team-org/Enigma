@@ -29,6 +29,8 @@ export interface Agent {
   services: string[];
   metadata: AgentMetadata | null;
   verified_tier: string | null;
+  rank?: number;
+  star_count?: number;
   created_at: string;
   updated_at: string;
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Bot, SlidersHorizontal, X, LayoutList, LayoutGrid } from 'lucide-react';
 import { useAgents } from '@/hooks/use-agents';
 import { useAgentSparklines } from '@/hooks/use-agent-sparklines';
+import { useSignals } from '@/hooks/use-signals';
 import { AgentTable } from '@/components/scanner/agent-table';
 import { AgentCard } from '@/components/scanner/agent-card';
 import { Filters, type FilterValues } from '@/components/scanner/filters';
@@ -94,10 +95,12 @@ export default function AgentsPage() {
   const agents = data?.agents ?? [];
   const meta   = data?.pagination;
 
-  // Fetch real sparkline data for the currently visible agents
+  // Fetch real sparkline data and signals for the currently visible agents
   const agentAddresses = agents.map((a) => a.address);
   const { data: sparklinesData } = useAgentSparklines(agentAddresses);
   const sparklines = sparklinesData ?? {};
+  const { data: signalsData } = useSignals(agentAddresses);
+  const signals = signalsData ?? {};
 
   const handleReset = () => {
     setFilters(DEFAULT_FILTERS);
@@ -207,11 +210,11 @@ export default function AgentsPage() {
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
                 {agents.map((agent) => (
-                  <AgentCard key={agent.address} agent={agent} sparklines={sparklines} />
+                  <AgentCard key={agent.address} agent={agent} sparklines={sparklines} signals={signals} />
                 ))}
               </div>
             ) : (
-              <AgentTable agents={agents} sparklines={sparklines} />
+              <AgentTable agents={agents} sparklines={sparklines} signals={signals} />
             )}
           </div>
 

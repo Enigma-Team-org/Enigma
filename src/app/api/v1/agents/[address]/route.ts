@@ -58,6 +58,9 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
+        endpoints: {
+          orderBy: { type: 'asc' },
+        },
       },
     });
 
@@ -155,6 +158,25 @@ export async function GET(
         timeoutPings: uptimeData.timeoutPings,
         averageResponseTimeMs: uptimeData.averageResponseTimeMs,
       },
+
+      // Registered endpoints with health status
+      endpoints: agent.endpoints.map((ep) => {
+        const lastCheck = ep.lastHealthCheck;
+        const isHealthy = ep.isActive && lastCheck
+          ? (Date.now() - lastCheck.getTime()) < 24 * 60 * 60 * 1000 // within 24h
+          : ep.isActive;
+        return {
+          id: ep.id,
+          type: ep.type,
+          url: ep.url,
+          capabilities: ep.capabilities,
+          pricePerCall: ep.pricePerCall.toString(),
+          isActive: ep.isActive,
+          isHealthy,
+          latencyMs: ep.latencyMs,
+          lastHealthCheck: lastCheck?.toISOString() ?? null,
+        };
+      }),
 
       // Rating summary
       ratings: {
