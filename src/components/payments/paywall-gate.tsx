@@ -121,24 +121,27 @@ export function PaywallGate({
   }
 
   return (
-    <div className={cn('relative', className)}>
-      {/* Blurred content preview */}
-      <div className="pointer-events-none select-none blur-sm opacity-40">
-        {children}
+    <div className={cn('relative overflow-hidden rounded-xl border border-[rgba(255,255,255,0.06)]', className)}>
+      {/* Locked content container with minimum height */}
+      <div className="min-h-[180px]">
+        {/* Blurred content preview */}
+        <div className="pointer-events-none select-none blur-sm opacity-30 p-4">
+          {children}
+        </div>
       </div>
 
       {/* Overlay */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-xl bg-[rgba(0,0,0,0.6)] backdrop-blur-sm"
+        className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-[rgba(0,0,0,0.7)] backdrop-blur-sm"
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(167,139,250,0.15)]">
-          <Lock className="h-5 w-5 text-[#A78BFA]" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(167,139,250,0.15)]">
+          <Lock className="h-4 w-4 text-[#A78BFA]" />
         </div>
-        <div className="text-center">
+        <div className="text-center px-4">
           <p className="text-sm font-semibold text-white">{label}</p>
-          {description && <p className="mt-1 text-xs text-[#64748B]">{description}</p>}
+          {description && <p className="mt-1 text-[11px] text-[#64748B]">{description}</p>}
         </div>
         <TokenSelector selected={selectedToken} onSelect={setSelectedToken} />
         <PaymentButton

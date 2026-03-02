@@ -590,78 +590,83 @@ export default function AgentProfilePage() {
               ))}
             </div>
 
-            {/* Deep Analysis PRO — x402 Paywall */}
-            <div className="mt-5 border-t border-[rgba(255,255,255,0.06)] pt-4">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Deep Analysis PRO</p>
-              <PaywallGate
-                agentAddress={address}
-                paymentType="DEEP_ANALYSIS"
-                label="Unlock Deep Analysis"
-                description="TRACER 6 dimensions + Sentinel 27 checks + full report"
-              >
-                <div className="space-y-3 text-xs text-[#94A3B8]">
-                  <p>Full TRACER + Sentinel analysis available after payment verification.</p>
-                  <Link
-                    href={`/agents/${address}/analysis` as '/'}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.1)] px-4 py-2 text-xs font-semibold text-[#A78BFA] transition-colors hover:bg-[rgba(167,139,250,0.15)]"
-                  >
-                    View Full Report →
-                  </Link>
-                </div>
-              </PaywallGate>
-            </div>
+            {/* ── PRO Services ── */}
+            <div className="mt-6 space-y-5">
 
-            {/* Get Premium Verified */}
-            <div className="mt-5 border-t border-[rgba(255,255,255,0.06)] pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Award className="h-4 w-4 text-[#F59E0B]" />
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Get Premium Verified</p>
+              {/* Deep Analysis PRO */}
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-4">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#A78BFA]">Deep Analysis PRO</p>
+                <PaywallGate
+                  agentAddress={address}
+                  paymentType="DEEP_ANALYSIS"
+                  label="Unlock Deep Analysis"
+                  description="TRACER 6 dimensions + Sentinel 27 checks + full report"
+                >
+                  <div className="space-y-3 text-xs text-[#94A3B8]">
+                    <p>Full TRACER + Sentinel analysis available after payment verification.</p>
+                    <Link
+                      href={`/agents/${address}/analysis` as '/'}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.1)] px-4 py-2 text-xs font-semibold text-[#A78BFA] transition-colors hover:bg-[rgba(167,139,250,0.15)]"
+                    >
+                      View Full Report →
+                    </Link>
+                  </div>
+                </PaywallGate>
               </div>
 
-              {agent.verifiedTier === 'PREMIUM' ? (
-                <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-[#F59E0B]" />
-                    <span className="text-sm font-semibold text-[#F59E0B]">Premium Verified</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#94A3B8]">
-                    This agent has been verified with a Premium badge.
-                    {agent.verifiedAt && ` Verified ${formatRelativeTime(agent.verifiedAt)}.`}
-                  </p>
+              {/* Get Premium Verified */}
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Award className="h-4 w-4 text-[#F59E0B]" />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#F59E0B]">Get Premium Verified</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Criteria checklist */}
-                  {eligibility?.criteria && (
-                    <div className="space-y-1.5">
-                      {(eligibility.criteria as Array<{ name: string; passed: boolean; detail: string }>).map((c) => (
-                        <div key={c.name} className="flex items-center gap-2 text-xs">
-                          {c.passed ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#4ADE80]" />
-                          ) : (
-                            <XCircle className="h-3.5 w-3.5 shrink-0 text-[#FB7185]" />
-                          )}
-                          <span className={c.passed ? 'text-[#94A3B8]' : 'text-[#FB7185]'}>
-                            {c.detail}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
-                  {/* Paywall gate for verification */}
-                  <PaywallGate
-                    agentAddress={address}
-                    paymentType="AGENT_VERIFICATION"
-                    label="Verify Agent ($1.00 USDC)"
-                    description="One-time Premium Verified badge via x402 payment"
-                  >
-                    <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3 text-xs text-[#94A3B8]">
-                      <p>Payment confirmed. Your agent now has the Premium Verified badge.</p>
+                {agent.verifiedTier === 'PREMIUM' ? (
+                  <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-4 w-4 text-[#F59E0B]" />
+                      <span className="text-sm font-semibold text-[#F59E0B]">Premium Verified</span>
                     </div>
-                  </PaywallGate>
-                </div>
-              )}
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      This agent has been verified with a Premium badge.
+                      {agent.verifiedAt && ` Verified ${formatRelativeTime(agent.verifiedAt)}.`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Criteria checklist */}
+                    {eligibility?.criteria && (
+                      <div className="space-y-1.5">
+                        {(eligibility.criteria as Array<{ name: string; passed: boolean; detail: string }>).map((c) => (
+                          <div key={c.name} className="flex items-center gap-2 text-xs">
+                            {c.passed ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#4ADE80]" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5 shrink-0 text-[#FB7185]" />
+                            )}
+                            <span className={c.passed ? 'text-[#94A3B8]' : 'text-[#FB7185]'}>
+                              {c.detail}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Paywall gate for verification */}
+                    <PaywallGate
+                      agentAddress={address}
+                      paymentType="AGENT_VERIFICATION"
+                      label="Verify Agent ($1.00 USDC)"
+                      description="One-time Premium Verified badge via x402 payment"
+                    >
+                      <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3 text-xs text-[#94A3B8]">
+                        <p>Payment confirmed. Your agent now has the Premium Verified badge.</p>
+                      </div>
+                    </PaywallGate>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
 
