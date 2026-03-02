@@ -6,10 +6,12 @@ import { Bot, ShieldCheck, Activity, Star, UserPlus, BookOpen } from 'lucide-rea
 import { type AgentStatus } from '@prisma/client';
 import { useAgents } from '@/hooks/use-agents';
 import { useAgentStats } from '@/hooks/use-agent-stats';
+import { useSignals } from '@/hooks/use-signals';
 import { KpiCard } from '@/components/scanner/kpi-card';
 import { ActivityChart } from '@/components/scanner/activity-chart';
 import { TopAgentsList } from '@/components/scanner/top-agents-list';
 import { RecentActivity } from '@/components/scanner/recent-activity';
+import { LiveFeed } from '@/components/scanner/live-feed';
 import { AgentTable } from '@/components/scanner/agent-table';
 import { Filters, type FilterValues } from '@/components/scanner/filters';
 import { SearchBar } from '@/components/scanner/search-bar';
@@ -78,6 +80,9 @@ export default function ScannerPage() {
 
   const agents = data?.agents ?? [];
   const meta   = data?.pagination;
+  const agentAddresses = agents.map((a) => a.address);
+  const { data: signalsData } = useSignals(agentAddresses);
+  const signals = signalsData ?? {};
 
   const verifiedPct = stats && stats.total > 0
     ? Math.round((stats.verified / stats.total) * 100)
@@ -135,7 +140,7 @@ export default function ScannerPage() {
         <ActivityChart />
         <div className="flex flex-col gap-4">
           <TopAgentsList agents={agents} isLoading={isLoading} />
-          <RecentActivity agents={agents} isLoading={isLoading} />
+          <LiveFeed limit={10} maxHeight="280px" />
         </div>
       </div>
 
@@ -178,7 +183,7 @@ export default function ScannerPage() {
                 onResetFilters={handleReset}
               />
             ) : (
-              <AgentTable agents={agents} />
+              <AgentTable agents={agents} signals={signals} />
             )}
           </div>
 

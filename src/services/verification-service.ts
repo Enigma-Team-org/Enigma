@@ -2,6 +2,7 @@ import { prisma } from '@/lib/database/prisma';
 import { createLogger } from '@/lib/utils/logger';
 import { NotFoundError, ValidationError } from '@/lib/utils/errors';
 import { hasValidPayment } from '@/services/payment-service';
+import { calculateCombinedTrustScore } from '@/services/combined-trust-score-service';
 
 const logger = createLogger('verification-service');
 
@@ -76,13 +77,15 @@ export async function checkVerificationEligibility(agentAddress: string): Promis
       : 'Missing name, metadata, or services array',
   });
 
-  // 3. Trust score >= 60
-  const hasMinScore = agent.trust_score >= MIN_TRUST_SCORE;
+  // 3. Trust score v2 >= 60
+  const combined = await calculateCombinedTrustScore(agentAddress.toLowerCase()).catch(() => null);
+  const v2Score = combined?.v2Score ?? agent.trust_score;
+  const hasMinScore = v2Score >= MIN_TRUST_SCORE;
   criteria.push({
     name: 'trust_score',
     description: `Trust score >= ${MIN_TRUST_SCORE}`,
     passed: hasMinScore,
-    detail: `Current score: ${agent.trust_score}`,
+    detail: `Current v2 score: ${v2Score}`,
   });
 
   // 4. No open reports

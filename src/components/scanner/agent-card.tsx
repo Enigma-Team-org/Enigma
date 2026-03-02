@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Award, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { Award, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX, Star } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { type Agent } from '@/hooks/use-agents';
 import { type SparklineMap } from '@/hooks/use-agent-sparklines';
+import { type SignalMap } from '@/hooks/use-signals';
 import { cn } from '@/lib/utils/index';
 
 function getTrustColor(score: number) {
@@ -44,9 +45,10 @@ function monogram(name: string) {
 interface AgentCardProps {
   agent: Agent;
   sparklines?: SparklineMap;
+  signals?: SignalMap;
 }
 
-export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
+export function AgentCard({ agent, sparklines = {}, signals = {} }: AgentCardProps) {
   const colors = getTrustColor(agent.trust_score);
   const status = getStatusConfig(agent.status, agent.verified_tier);
   const StatusIcon = status.icon;
@@ -61,6 +63,19 @@ export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
         'hover:border-[rgba(74,222,128,0.15)] hover:bg-[rgba(74,222,128,0.02)]',
       )}
     >
+      {/* Rank + Stars row */}
+      <div className="flex items-center justify-between">
+        {agent.rank && (
+          <span className="font-data text-[11px] font-bold text-[#475569]">#{agent.rank}</span>
+        )}
+        {typeof agent.star_count === 'number' && (
+          <div className="flex items-center gap-0.5 text-[#475569]">
+            <Star className="h-3 w-3" />
+            <span className="font-data text-[10px]">{agent.star_count}</span>
+          </div>
+        )}
+      </div>
+
       {/* Top row: avatar + score */}
       <div className="flex items-start justify-between">
         <div className="relative h-10 w-10 flex-shrink-0">
@@ -95,7 +110,7 @@ export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
         </div>
       </div>
 
-      {/* Name + address */}
+      {/* Name + address + signals */}
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm font-semibold text-white group-hover:text-[#4ADE80] transition-colors">
@@ -110,6 +125,19 @@ export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
         <p className="font-data text-[10px] text-[#475569]">
           {agent.address.slice(0, 8)}...{agent.address.slice(-6)}
         </p>
+        {/* Signal badges */}
+        {(signals[agent.address] ?? []).length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {signals[agent.address].map((sig) => (
+              <span
+                key={sig.type}
+                className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', sig.bgColor, sig.color)}
+              >
+                {sig.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Sparkline */}

@@ -9,7 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { ArrowUpDown, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX, Star } from 'lucide-react';
 import { useState } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Badge } from '@/components/ui/badge';
@@ -24,11 +24,13 @@ import {
 } from '@/components/ui/table';
 import { type Agent } from '@/hooks/use-agents';
 import { type SparklineMap } from '@/hooks/use-agent-sparklines';
+import { type SignalMap } from '@/hooks/use-signals';
 import { cn } from '@/lib/utils/index';
 
 interface AgentTableProps {
   agents: Agent[];
   sparklines?: SparklineMap;
+  signals?: SignalMap;
   onSortChange?: (sortBy: string, sortOrder: 'asc' | 'desc') => void;
 }
 
@@ -125,7 +127,9 @@ const columns: ColumnDef<Agent>[] = [
     id: 'rank',
     header: '#',
     cell: ({ row }) => (
-      <span className="font-data text-xs text-[#475569]">{row.index + 1}</span>
+      <span className="font-data text-xs font-bold text-[#475569]">
+        {row.original.rank ? `#${row.original.rank}` : row.index + 1}
+      </span>
     ),
     size: 44,
   },
@@ -267,7 +271,7 @@ const columns: ColumnDef<Agent>[] = [
 
 // ── AgentTable ────────────────────────────────────────────────────────────────
 
-export function AgentTable({ agents, sparklines = {}, onSortChange }: AgentTableProps) {
+export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange }: AgentTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -285,6 +289,51 @@ export function AgentTable({ agents, sparklines = {}, onSortChange }: AgentTable
       />
     ),
     size: 80,
+  };
+
+  // Signals column
+  const signalsColumn: ColumnDef<Agent> = {
+    id: 'signals',
+    header: () => (
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Signals</span>
+    ),
+    cell: ({ row }) => {
+      const agentSignals = signals[row.original.address] ?? [];
+      if (agentSignals.length === 0) return null;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {agentSignals.slice(0, 3).map((sig) => (
+            <span
+              key={sig.type}
+              className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', sig.bgColor, sig.color)}
+            >
+              {sig.label}
+            </span>
+          ))}
+        </div>
+      );
+    },
+    size: 120,
+  };
+
+  // Stars column
+  const starsColumn: ColumnDef<Agent> = {
+    id: 'stars',
+    header: () => (
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">
+        <Star className="inline h-3 w-3" />
+      </span>
+    ),
+    cell: ({ row }) => {
+      const count = row.original.star_count ?? 0;
+      return (
+        <div className="flex items-center gap-1 text-[#475569]">
+          <Star className={cn('h-3 w-3', count > 0 && 'fill-[#FCD34D] text-[#FCD34D]')} />
+          <span className="font-data text-xs">{count}</span>
+        </div>
+      );
+    },
+    size: 60,
   };
 
   // Share column — opens X/Twitter directly, no modal
@@ -323,7 +372,7 @@ export function AgentTable({ agents, sparklines = {}, onSortChange }: AgentTable
 
   const table = useReactTable({
     data: agents,
-    columns: [...columns, trendColumn, shareColumn],
+    columns: [...columns, signalsColumn, trendColumn, starsColumn, shareColumn],
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: (updater) => {

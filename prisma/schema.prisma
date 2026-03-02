@@ -113,6 +113,9 @@ model Agent {
   sentinelValidations   SentinelValidation[]
   services              AgentService[]
 
+  // Stars (favorites)
+  stars                 AgentStar[]
+
   // GDP Engine Phase 1 relations
   endpoints             AgentEndpoint[]
   transactionsSent      AgentTransaction[] @relation("transactions_sent")
@@ -260,6 +263,22 @@ model WatchlistItem {
 
   @@unique([watchlistId, agentId])
   @@map("watchlist_items")
+}
+
+/// Star/favorite an agent (wallet-based, no auth required)
+model AgentStar {
+  id            String   @id @default(cuid())
+  walletAddress String   @map("wallet_address")
+  agentAddress  String   @map("agent_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  agent Agent @relation(fields: [agentAddress], references: [address], onDelete: Cascade)
+
+  @@unique([walletAddress, agentAddress])
+  @@index([agentAddress])
+  @@index([walletAddress])
+  @@map("agent_stars")
 }
 
 // ============================================

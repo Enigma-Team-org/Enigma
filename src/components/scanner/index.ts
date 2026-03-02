@@ -8,3 +8,4 @@ export { EmptyState } from './empty-state';
 export { ErrorState } from './error-state';
 export { Filters, type FilterValues } from './filters';
 export { SearchBar } from './search-bar';
+export { LiveFeed } from './live-feed';

@@ -3,6 +3,7 @@ import { injected, walletConnect } from 'wagmi/connectors';
 import { avalanche, avalancheFuji } from './config';
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://enigma-scanner.vercel.app';
 
 /**
  * Wagmi configuration for Enigma
@@ -10,18 +11,21 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
  */
 export const wagmiConfig = createConfig({
   chains: [avalanche, avalancheFuji],
-  connectors: [
-    injected(),
-    walletConnect({
-      projectId,
-      metadata: {
-        name: 'Enigma',
-        description: 'Trust Score Platform for Autonomous Agents on Avalanche',
-        url: 'https://enigma.io',
-        icons: ['https://enigma.io/logo.png'],
-      },
-    }),
-  ],
+  connectors: projectId
+    ? [
+        injected(),
+        walletConnect({
+          projectId,
+          metadata: {
+            name: 'Enigma Platform',
+            description: 'Trust Score Platform for Autonomous Agents on Avalanche',
+            url: siteUrl,
+            icons: [`${siteUrl}/logo.png`],
+          },
+          showQrModal: true,
+        }),
+      ]
+    : [injected()],
   transports: {
     [avalanche.id]: http(),
     [avalancheFuji.id]: http(),
