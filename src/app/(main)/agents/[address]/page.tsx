@@ -119,7 +119,7 @@ export default function AgentProfilePage() {
       const json = await res.json();
       return json.data ?? null;
     },
-    enabled: !!address,
+    enabled: !!address && agent?.verifiedTier !== 'PREMIUM',
     staleTime: 5 * 60 * 1000,
   });
 
