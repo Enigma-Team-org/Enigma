@@ -1,8 +1,8 @@
 'use client';
 
-import { type FC, useState } from 'react';
+import { type FC, useState, useCallback } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { Wallet, X } from 'lucide-react';
+import { Wallet, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/index';
 
@@ -17,18 +17,30 @@ export const WalletConnectButton: FC<WalletConnectButtonProps> = ({
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleConnect = (connectorIndex: number) => {
+  const handleConnect = useCallback((connectorIndex: number) => {
     const connector = connectors[connectorIndex];
-    if (connector) {
-      connect({ connector });
-      setShowModal(false);
-    }
-  };
+    if (!connector) return;
 
-  const handleDisconnect = () => {
-    disconnect();
-  };
+    setError(null);
+    connect(
+      { connector },
+      {
+        onSuccess: () => setShowModal(false),
+        onError: (err) => {
+          console.error('Wallet connection error:', err);
+          if (err.message?.includes('user rejected')) {
+            setError('Connection rejected by user');
+          } else if (err.message?.includes('No provider')) {
+            setError('No wallet found. Install MetaMask or Core Wallet.');
+          } else {
+            setError(err.message || 'Failed to connect wallet');
+          }
+        },
+      },
+    );
+  }, [connect, connectors]);
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -38,7 +50,7 @@ export const WalletConnectButton: FC<WalletConnectButtonProps> = ({
     return (
       <Button
         variant="outline"
-        onClick={handleDisconnect}
+        onClick={() => disconnect()}
         className={cn(className)}
       >
         {truncateAddress(address)}
@@ -56,7 +68,7 @@ export const WalletConnectButton: FC<WalletConnectButtonProps> = ({
 
   return (
     <>
-      <Button onClick={() => setShowModal(true)} className={cn(className)}>
+      <Button onClick={() => { setError(null); setShowModal(true); }} className={cn(className)}>
         <Wallet className="mr-1.5 h-3.5 w-3.5" />
         Connect Wallet
       </Button>
@@ -80,25 +92,43 @@ export const WalletConnectButton: FC<WalletConnectButtonProps> = ({
             <p className="mb-5 text-sm text-[#64748B]">
               Choose a wallet to connect to Enigma Platform
             </p>
+
+            {error && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
-              {connectors.map((connector, index) => (
-                <button
-                  key={connector.uid}
-                  onClick={() => handleConnect(index)}
-                  className="flex items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-left text-sm font-medium text-white transition-all hover:border-[#4ADE80]/30 hover:bg-[#4ADE80]/5"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(74,222,128,0.1)]">
-                    <Wallet className="h-4 w-4 text-[#4ADE80]" />
-                  </div>
-                  <div>
-                    <div>{connector.name}</div>
-                    <div className="text-[10px] text-[#64748B]">
-                      {connector.type === 'injected' ? 'Browser Extension' : 'Scan QR Code'}
+              {connectors.map((connector, index) => {
+                const isInjected = connector.type === 'injected';
+                return (
+                  <button
+                    key={connector.uid}
+                    onClick={() => handleConnect(index)}
+                    className="flex items-center gap-3 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-left text-sm font-medium text-white transition-all hover:border-[#4ADE80]/30 hover:bg-[#4ADE80]/5"
+                  >
+                    <div className={cn(
+                      'flex h-9 w-9 items-center justify-center rounded-lg',
+                      isInjected ? 'bg-[rgba(251,191,36,0.1)]' : 'bg-[rgba(74,222,128,0.1)]'
+                    )}>
+                      <Wallet className={cn('h-4 w-4', isInjected ? 'text-amber-400' : 'text-[#4ADE80]')} />
                     </div>
-                  </div>
-                </button>
-              ))}
+                    <div>
+                      <div>{connector.name}</div>
+                      <div className="text-[10px] text-[#64748B]">
+                        {isInjected ? 'Browser Extension (MetaMask, Core)' : 'Scan QR Code'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            <p className="mt-4 text-center text-[10px] text-[#475569]">
+              Avalanche C-Chain (Mainnet & Fuji)
+            </p>
           </div>
         </div>
       )}
