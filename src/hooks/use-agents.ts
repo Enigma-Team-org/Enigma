@@ -28,6 +28,7 @@ export interface Agent {
   owner_address: string;
   services: string[];
   metadata: AgentMetadata | null;
+  verified_tier: string | null;
   created_at: string;
   updated_at: string;
 }

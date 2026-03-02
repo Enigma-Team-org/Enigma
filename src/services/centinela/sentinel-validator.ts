@@ -1197,22 +1197,49 @@ export async function validateAgent(agentAddress: string): Promise<ValidationRes
     },
   });
 
-  // Update agent status based on verdict
-  // Only promote to VERIFIED if PASS; demote to PENDING if PARTIAL/FAIL
+  // Update agent status and verified_tier based on verdict
   // Never touch FLAGGED or SUSPENDED (community/admin actions)
   if (agent.status !== 'FLAGGED' && agent.status !== 'SUSPENDED') {
-    const newStatus = finalVerdict === 'PASS' ? 'VERIFIED' : 'PENDING';
-    if (agent.status !== newStatus) {
-      await prisma.agent.update({
-        where: { address: normalizedAddress },
-        data: { status: newStatus },
-      });
-      logger.info({
-        agentAddress: normalizedAddress,
-        oldStatus: agent.status,
-        newStatus,
-        verdict: finalVerdict,
-      }, 'Agent status updated by Sentinel');
+    if (finalVerdict === 'PASS') {
+      // Sentinel PASS → VERIFIED status + SENTINEL tier (preserve PREMIUM if already set)
+      const updateData: Record<string, unknown> = { status: 'VERIFIED' as const };
+      if (agent.verified_tier !== 'PREMIUM') {
+        updateData.verified_tier = 'SENTINEL';
+        if (!agent.verified_at) {
+          updateData.verified_at = new Date();
+        }
+      }
+      if (agent.status !== 'VERIFIED' || (!agent.verified_tier && agent.verified_tier !== 'PREMIUM')) {
+        await prisma.agent.update({
+          where: { address: normalizedAddress },
+          data: updateData,
+        });
+        logger.info({
+          agentAddress: normalizedAddress,
+          oldStatus: agent.status,
+          newStatus: 'VERIFIED',
+          tier: updateData.verified_tier ?? agent.verified_tier,
+          verdict: finalVerdict,
+        }, 'Agent status updated by Sentinel');
+      }
+    } else {
+      // Sentinel FAIL/PARTIAL → PENDING + clear tier (even Premium loses verification)
+      if (agent.status !== 'PENDING') {
+        await prisma.agent.update({
+          where: { address: normalizedAddress },
+          data: {
+            status: 'PENDING',
+            verified_tier: null,
+          },
+        });
+        logger.info({
+          agentAddress: normalizedAddress,
+          oldStatus: agent.status,
+          oldTier: agent.verified_tier,
+          newStatus: 'PENDING',
+          verdict: finalVerdict,
+        }, 'Agent demoted by Sentinel (tier cleared)');
+      }
     }
   }
 

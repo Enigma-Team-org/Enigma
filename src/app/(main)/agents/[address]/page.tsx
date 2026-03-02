@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink, GitBranch, Bot, BookOpen } from 'lucide-react';
+import { ArrowLeft, Award, CheckCircle2, ExternalLink, GitBranch, Bot, BookOpen, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { RatingForm } from '@/components/agent/rating-form';
 import { ReportModal } from '@/components/agent/report-modal';
@@ -110,6 +110,17 @@ export default function AgentProfilePage() {
 
   const { data: agent, isLoading, isError, error, refetch } = useAgent(address, {
     refetchInterval: 5 * 60 * 1000,
+  });
+
+  const { data: eligibility } = useQuery({
+    queryKey: ['verification-eligibility', address],
+    queryFn: async () => {
+      const res = await fetch(`/api/v1/agents/${address}/verify`);
+      const json = await res.json();
+      return json.data ?? null;
+    },
+    enabled: !!address && agent?.verifiedTier !== 'PREMIUM',
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: heartbeatData } = useQuery({
@@ -308,6 +319,12 @@ export default function AgentProfilePage() {
             <span className={cn('rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider', statusClass(agent.status))}>
               {formatEnumValue(agent.status)}
             </span>
+            {agent.verifiedTier === 'PREMIUM' && (
+              <span className="inline-flex items-center gap-1 rounded border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.1)] px-2 py-0.5 text-[10px] font-semibold text-[#F59E0B]">
+                <Award className="h-3 w-3" />
+                PREMIUM
+              </span>
+            )}
             {(agent.metadata?.services ?? []).map((svc) => (
               <span key={svc.name} className={cn('rounded border px-2 py-0.5 text-[10px] font-semibold', getServiceTagStyle(svc.name))}>
                 {svc.name}
@@ -592,6 +609,59 @@ export default function AgentProfilePage() {
                   </Link>
                 </div>
               </PaywallGate>
+            </div>
+
+            {/* Get Premium Verified */}
+            <div className="mt-5 border-t border-[rgba(255,255,255,0.06)] pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Award className="h-4 w-4 text-[#F59E0B]" />
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Get Premium Verified</p>
+              </div>
+
+              {agent.verifiedTier === 'PREMIUM' ? (
+                <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-[#F59E0B]" />
+                    <span className="text-sm font-semibold text-[#F59E0B]">Premium Verified</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#94A3B8]">
+                    This agent has been verified with a Premium badge.
+                    {agent.verifiedAt && ` Verified ${formatRelativeTime(agent.verifiedAt)}.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Criteria checklist */}
+                  {eligibility?.criteria && (
+                    <div className="space-y-1.5">
+                      {(eligibility.criteria as Array<{ name: string; passed: boolean; detail: string }>).map((c) => (
+                        <div key={c.name} className="flex items-center gap-2 text-xs">
+                          {c.passed ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#4ADE80]" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5 shrink-0 text-[#FB7185]" />
+                          )}
+                          <span className={c.passed ? 'text-[#94A3B8]' : 'text-[#FB7185]'}>
+                            {c.detail}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Paywall gate for verification */}
+                  <PaywallGate
+                    agentAddress={address}
+                    paymentType="AGENT_VERIFICATION"
+                    label="Verify Agent ($1.00 USDC)"
+                    description="One-time Premium Verified badge via x402 payment"
+                  >
+                    <div className="rounded-lg border border-[rgba(245,158,11,0.2)] bg-[rgba(245,158,11,0.06)] px-4 py-3 text-xs text-[#94A3B8]">
+                      <p>Payment confirmed. Your agent now has the Premium Verified badge.</p>
+                    </div>
+                  </PaywallGate>
+                </div>
+              )}
             </div>
           </div>
 

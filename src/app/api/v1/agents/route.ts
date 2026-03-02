@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
         owner_address: agent.owner_address,
         services,
         metadata: meta,
+        verified_tier: agent.verified_tier ?? null,
         created_at: agent.created_at.toISOString(),
         updated_at: agent.updated_at.toISOString(),
       };

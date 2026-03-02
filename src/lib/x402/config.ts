@@ -79,6 +79,12 @@ export const SERVICE_PRICES: ServicePrice[] = [
     priceUsd: '0.00',
     description: 'Variable fee for marketplace transactions (1-2%)',
   },
+  {
+    type: 'AGENT_VERIFICATION',
+    label: 'Agent Verification',
+    priceUsd: '1.00',
+    description: 'One-time Premium Verified badge for your agent',
+  },
 ];
 
 /**

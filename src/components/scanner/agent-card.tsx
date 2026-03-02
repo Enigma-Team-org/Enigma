@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { Award, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { type Agent } from '@/hooks/use-agents';
 import { type SparklineMap } from '@/hooks/use-agent-sparklines';
@@ -14,14 +14,19 @@ function getTrustColor(score: number) {
   return { text: 'text-[#FB7185]', bg: 'bg-[rgba(251,113,133,0.1)]', line: '#FB7185' };
 }
 
-function getStatusConfig(status: string) {
-  const map: Record<string, { icon: typeof ShieldCheck; text: string; bg: string }> = {
-    VERIFIED:  { icon: ShieldCheck, text: 'text-[#4ADE80]', bg: 'bg-[rgba(74,222,128,0.1)]' },
-    PENDING:   { icon: Clock,       text: 'text-[#FCD34D]', bg: 'bg-[rgba(252,211,77,0.1)]' },
-    FLAGGED:   { icon: ShieldAlert, text: 'text-[#FB7185]', bg: 'bg-[rgba(251,113,133,0.1)]' },
-    SUSPENDED: { icon: ShieldX,     text: 'text-[#FB7185]', bg: 'bg-[rgba(251,113,133,0.08)]' },
+function getStatusConfig(status: string, verifiedTier?: string | null) {
+  // Premium tier gets a golden badge regardless of base status
+  if (verifiedTier === 'PREMIUM') {
+    return { icon: Award, text: 'text-[#F59E0B]', bg: 'bg-[rgba(245,158,11,0.1)]', label: 'PREMIUM' };
+  }
+
+  const map: Record<string, { icon: typeof ShieldCheck; text: string; bg: string; label: string }> = {
+    VERIFIED:  { icon: ShieldCheck, text: 'text-[#4ADE80]', bg: 'bg-[rgba(74,222,128,0.1)]', label: 'VERIFIED' },
+    PENDING:   { icon: Clock,       text: 'text-[#FCD34D]', bg: 'bg-[rgba(252,211,77,0.1)]', label: 'PENDING' },
+    FLAGGED:   { icon: ShieldAlert, text: 'text-[#FB7185]', bg: 'bg-[rgba(251,113,133,0.1)]', label: 'FLAGGED' },
+    SUSPENDED: { icon: ShieldX,     text: 'text-[#FB7185]', bg: 'bg-[rgba(251,113,133,0.08)]', label: 'SUSPENDED' },
   };
-  return map[status] ?? { icon: Shield, text: 'text-[#64748B]', bg: 'bg-[rgba(255,255,255,0.05)]' };
+  return map[status] ?? { icon: Shield, text: 'text-[#64748B]', bg: 'bg-[rgba(255,255,255,0.05)]', label: status };
 }
 
 function mockSparkData(address: string, score: number) {
@@ -43,7 +48,7 @@ interface AgentCardProps {
 
 export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
   const colors = getTrustColor(agent.trust_score);
-  const status = getStatusConfig(agent.status);
+  const status = getStatusConfig(agent.status, agent.verified_tier);
   const StatusIcon = status.icon;
   const realData = sparklines[agent.address];
   const sparkData = (realData && realData.length >= 2) ? realData : mockSparkData(agent.address, agent.trust_score);
@@ -127,7 +132,7 @@ export function AgentCard({ agent, sparklines = {} }: AgentCardProps) {
       <div className="flex items-center justify-between">
         <div className={cn('flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium', status.bg, status.text)}>
           <StatusIcon className="h-3 w-3" />
-          {agent.status}
+          {status.label}
         </div>
         <span className="text-[10px] text-[#475569]">{agent.type}</span>
       </div>

@@ -10,7 +10,7 @@ import { SERVICE_PRICES, getTokenAddress, SUPPORTED_TOKENS } from '@/lib/x402/co
 
 interface PaywallGateProps {
   agentAddress: string;
-  paymentType: 'TRUST_SCORE_QUERY' | 'SENTINEL_VALIDATION' | 'DEEP_ANALYSIS';
+  paymentType: 'TRUST_SCORE_QUERY' | 'SENTINEL_VALIDATION' | 'DEEP_ANALYSIS' | 'AGENT_VERIFICATION';
   children: ReactNode;
   label?: string;
   description?: string;

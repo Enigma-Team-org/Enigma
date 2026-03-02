@@ -190,12 +190,12 @@ export async function syncAgentsFromRoutescan(maxPages = 20): Promise<RoutesScan
             token_id: Number(tokenId),
             token_uri: tokenURI,
             metadata: agentInfo.metadata,
-            status: 'VERIFIED',
+            status: 'PENDING',
           };
 
           await createAgent(agentData);
           indexed++;
-          logger.info({ tokenId: Number(tokenId), name: agentInfo.name }, 'Agent indexed');
+          logger.info({ tokenId: Number(tokenId), name: agentInfo.name }, 'Agent indexed (PENDING until Sentinel validates)');
         } catch (error) {
           failed++;
           logger.error({ tokenId: Number(tokenId), error }, 'Failed to index agent');

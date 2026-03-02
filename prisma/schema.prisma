@@ -87,8 +87,11 @@ model Agent {
   metadata         Json? // Full metadata JSON from tokenURI
 
   // Status and verification
-  status      AgentStatus @default(PENDING)
-  trust_score Int         @default(0) // 0-100
+  status          AgentStatus @default(PENDING)
+  trust_score     Int         @default(0) // 0-100
+  verified_tier   String?     @map("verified_tier")   // null | "SENTINEL" | "PREMIUM"
+  verified_at     DateTime?   @map("verified_at")
+  verification_tx String?     @map("verification_tx") // x402 payment tx hash
 
   // Proxy detection
   is_proxy               Boolean   @default(false)
@@ -504,6 +507,7 @@ enum PaymentType {
   SENTINEL_VALIDATION
   DEEP_ANALYSIS
   MARKETPLACE_FEE
+  AGENT_VERIFICATION
 }
 
 /// x402 Payment record
