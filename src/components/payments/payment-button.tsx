@@ -10,12 +10,13 @@ type PaymentState = 'idle' | 'loading' | 'success' | 'error';
 interface PaymentButtonProps {
   label: string;
   priceUsd: string;
+  priceDisplay?: string;
   onPay: () => Promise<void>;
   disabled?: boolean;
   className?: string;
 }
 
-export function PaymentButton({ label, priceUsd, onPay, disabled, className }: PaymentButtonProps) {
+export function PaymentButton({ label, priceUsd, priceDisplay, onPay, disabled, className }: PaymentButtonProps) {
   const [state, setState] = useState<PaymentState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -69,7 +70,7 @@ export function PaymentButton({ label, priceUsd, onPay, disabled, className }: P
           )}
         </AnimatePresence>
         <span>
-          {state === 'loading' ? 'Processing...' : state === 'success' ? 'Paid!' : state === 'error' ? 'Failed' : `${label} · $${priceUsd}`}
+          {state === 'loading' ? 'Processing...' : state === 'success' ? 'Paid!' : state === 'error' ? 'Failed' : `${label} · ${priceDisplay ?? `$${priceUsd}`}`}
         </span>
       </motion.button>
       {errorMsg && <p className="text-[10px] text-[#FB7185]">{errorMsg}</p>}

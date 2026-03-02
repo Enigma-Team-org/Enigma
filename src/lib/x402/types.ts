@@ -3,7 +3,7 @@ import type { PaymentType, PaymentStatus } from '@prisma/client';
 /**
  * Supported tokens for x402 payments
  */
-export type SupportedToken = 'USDC' | 'EURC' | 'PYUSD' | 'USDT';
+export type SupportedToken = 'USDC' | 'EURC' | 'PYUSD' | 'USDT' | 'AVAX';
 
 /**
  * Supported chains for x402 payments

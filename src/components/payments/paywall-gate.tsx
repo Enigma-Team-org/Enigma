@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils/index';
 import { PaymentButton } from './payment-button';
 import { TokenSelector } from './token-selector';
 import { SERVICE_PRICES, getTokenAddress, SUPPORTED_TOKENS } from '@/lib/x402/config';
+import { useAvaxPrice, usdToAvax } from '@/hooks/use-avax-price';
 
 interface PaywallGateProps {
   agentAddress: string;
@@ -59,9 +60,13 @@ export function PaywallGate({
 }: PaywallGateProps) {
   const [isPaid, setIsPaid] = useState(false);
   const [selectedToken, setSelectedToken] = useState('USDC');
+  const { data: avaxPrice } = useAvaxPrice();
 
   const priceInfo = SERVICE_PRICES.find((p) => p.type === paymentType);
   const priceUsd = priceInfo?.priceUsd ?? '0.00';
+  const priceDisplay = selectedToken === 'AVAX' && avaxPrice && avaxPrice > 0
+    ? `${usdToAvax(parseFloat(priceUsd), avaxPrice)} AVAX`
+    : `$${priceUsd}`;
 
   useEffect(() => {
     if (checkCachedPayment(paymentType, agentAddress)) {
@@ -143,10 +148,11 @@ export function PaywallGate({
           <p className="text-sm font-semibold text-white">{label}</p>
           {description && <p className="mt-1 text-[11px] text-[#64748B]">{description}</p>}
         </div>
-        <TokenSelector selected={selectedToken} onSelect={setSelectedToken} />
+        <TokenSelector selected={selectedToken} onSelect={setSelectedToken} avaxPrice={avaxPrice} />
         <PaymentButton
           label={label}
           priceUsd={priceUsd}
+          priceDisplay={priceDisplay}
           onPay={handlePay}
         />
       </motion.div>

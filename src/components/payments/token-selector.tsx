@@ -1,21 +1,22 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/index';
 
 const TOKENS = [
-  { symbol: 'USDC', name: 'USD Coin', logo: '/tokens/usdc.svg' },
-  { symbol: 'EURC', name: 'Euro Coin', logo: '/tokens/eurc.svg' },
+  { symbol: 'USDC', label: 'USDC' },
+  { symbol: 'EURC', label: 'EURC' },
+  { symbol: 'AVAX', label: 'AVAX' },
 ] as const;
 
 interface TokenSelectorProps {
   selected: string;
   onSelect: (symbol: string) => void;
+  avaxPrice?: number | null;
   className?: string;
 }
 
-export function TokenSelector({ selected, onSelect, className }: TokenSelectorProps) {
+export function TokenSelector({ selected, onSelect, avaxPrice, className }: TokenSelectorProps) {
   return (
     <div className={cn('flex gap-2', className)}>
       {TOKENS.map((token) => (
@@ -23,7 +24,7 @@ export function TokenSelector({ selected, onSelect, className }: TokenSelectorPr
           key={token.symbol}
           onClick={() => onSelect(token.symbol)}
           className={cn(
-            'relative flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
+            'relative flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
             selected === token.symbol
               ? 'border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.08)] text-[#4ADE80]'
               : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] text-[#64748B] hover:bg-[rgba(255,255,255,0.04)]'
@@ -36,7 +37,10 @@ export function TokenSelector({ selected, onSelect, className }: TokenSelectorPr
               transition={{ type: 'spring', duration: 0.3 }}
             />
           )}
-          <span className="relative">{token.symbol}</span>
+          <span className="relative">{token.label}</span>
+          {token.symbol === 'AVAX' && avaxPrice != null && avaxPrice > 0 && (
+            <span className="relative text-[9px] text-[#475569]">${avaxPrice.toFixed(0)}</span>
+          )}
         </button>
       ))}
     </div>

@@ -49,6 +49,15 @@ export const SUPPORTED_TOKENS: TokenInfo[] = [
     },
     logo: '/tokens/eurc.svg',
   },
+  {
+    symbol: 'AVAX',
+    name: 'Avalanche',
+    decimals: 18,
+    addresses: {
+      43114: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7', // WAVAX
+    },
+    logo: '/tokens/avax.svg',
+  },
 ];
 
 /**
