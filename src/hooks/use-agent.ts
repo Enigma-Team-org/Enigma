@@ -67,6 +67,9 @@ export interface AgentDetail {
   tokenUri: string | null;
   metadata: AgentMetadata | null;
   status: AgentStatus;
+  verifiedTier: string | null;
+  verifiedAt: string | null;
+  verificationTx: string | null;
   createdAt: string;
   updatedAt: string;
 

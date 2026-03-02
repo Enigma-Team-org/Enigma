@@ -285,7 +285,7 @@ export async function syncNetwork(network: Network, limit = 0): Promise<IndexerR
         token_id: Number(tokenId),
         token_uri: tokenURI,
         metadata: agentInfo.metadata,
-        status: 'VERIFIED',
+        status: 'PENDING',
       };
 
       await createAgent(agentData);

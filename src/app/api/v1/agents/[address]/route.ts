@@ -102,6 +102,9 @@ export async function GET(
       tokenUri: agent.token_uri,
       metadata: agent.metadata,
       status: agent.status,
+      verifiedTier: agent.verified_tier ?? null,
+      verifiedAt: agent.verified_at?.toISOString() ?? null,
+      verificationTx: agent.verification_tx ?? null,
       createdAt: agent.created_at.toISOString(),
       updatedAt: agent.updated_at.toISOString(),
 
