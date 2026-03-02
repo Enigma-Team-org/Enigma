@@ -3,16 +3,19 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import {
   ArrowLeft,
   Circle,
   ExternalLink,
   Loader2,
+  Wallet,
   Zap,
 } from 'lucide-react';
 import { cn, formatAddress, formatCurrency } from '@/lib/utils/index';
 import { DealCard } from '@/components/marketplace/deal-card';
+import { WalletConnectButton } from '@/components/shared/wallet-connect-button';
 
 interface AgentService {
   id: string;
@@ -53,7 +56,7 @@ const categoryColors: Record<string, string> = {
 export default function ServiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [buyerAddress, setBuyerAddress] = useState('');
+  const { address, isConnected } = useAccount();
   const [showDealForm, setShowDealForm] = useState(false);
 
   const { data: service, isLoading } = useQuery<AgentService>({
@@ -86,7 +89,7 @@ export default function ServiceDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId: id,
-          buyerAddress,
+          buyerAddress: address,
           agreedPriceUsd: service!.priceUsd,
         }),
       });
@@ -209,47 +212,50 @@ export default function ServiceDetailPage() {
         {/* Create Deal */}
         {service.isActive && (
           <div className="border-t border-[rgba(255,255,255,0.06)] pt-5">
-            {!showDealForm ? (
-              <button
-                onClick={() => setShowDealForm(true)}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-5 py-2.5',
-                  'bg-[rgba(74,222,128,0.15)] border border-[rgba(74,222,128,0.3)]',
-                  'text-sm font-medium text-[#4ADE80]',
-                  'hover:bg-[rgba(74,222,128,0.25)] transition-colors'
-                )}
-              >
-                <Zap className="h-4 w-4" />
-                Start a Deal
-              </button>
+            {!isConnected ? (
+              <div className="flex items-center gap-4">
+                <Wallet className="h-5 w-5 text-[rgba(255,255,255,0.3)]" />
+                <div className="flex-1">
+                  <p className="text-sm text-[rgba(255,255,255,0.5)] mb-2">
+                    Connect your wallet to start a deal
+                  </p>
+                  <WalletConnectButton />
+                </div>
+              </div>
+            ) : !showDealForm ? (
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowDealForm(true)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg px-5 py-2.5',
+                    'bg-[rgba(74,222,128,0.15)] border border-[rgba(74,222,128,0.3)]',
+                    'text-sm font-medium text-[#4ADE80]',
+                    'hover:bg-[rgba(74,222,128,0.25)] transition-colors'
+                  )}
+                >
+                  <Zap className="h-4 w-4" />
+                  Start a Deal
+                </button>
+                <span className="text-xs font-mono text-[rgba(255,255,255,0.35)]">
+                  {formatAddress(address!)}
+                </span>
+              </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-[rgba(255,255,255,0.5)]">
-                  Enter your wallet address to propose a deal at{' '}
+                  Propose a deal as{' '}
+                  <span className="font-mono text-[rgba(255,255,255,0.7)]">
+                    {formatAddress(address!)}
+                  </span>{' '}
+                  at{' '}
                   <span className="text-white font-medium">
                     {formatCurrency(Number(service.priceUsd))}
                   </span>
                 </p>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={buyerAddress}
-                    onChange={(e) => setBuyerAddress(e.target.value)}
-                    placeholder="0x..."
-                    className={cn(
-                      'flex-1 h-10 rounded-lg px-3 text-sm text-white placeholder:text-[rgba(255,255,255,0.3)]',
-                      'bg-[rgba(255,255,255,0.04)]',
-                      'border border-[rgba(255,255,255,0.06)]',
-                      'focus:outline-none focus:border-[rgba(74,222,128,0.4)]',
-                      'transition-colors font-mono'
-                    )}
-                  />
                   <button
                     onClick={() => createDealMutation.mutate()}
-                    disabled={
-                      !buyerAddress.match(/^0x[a-fA-F0-9]{40}$/) ||
-                      createDealMutation.isPending
-                    }
+                    disabled={createDealMutation.isPending}
                     className={cn(
                       'flex items-center gap-2 rounded-lg px-5 py-2.5',
                       'bg-[rgba(74,222,128,0.15)] border border-[rgba(74,222,128,0.3)]',
@@ -261,8 +267,14 @@ export default function ServiceDetailPage() {
                     {createDealMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      'Propose Deal'
+                      'Confirm Deal'
                     )}
+                  </button>
+                  <button
+                    onClick={() => setShowDealForm(false)}
+                    className="rounded-lg px-4 py-2.5 text-sm text-[rgba(255,255,255,0.4)] hover:text-white transition-colors"
+                  >
+                    Cancel
                   </button>
                 </div>
                 {createDealMutation.isError && (

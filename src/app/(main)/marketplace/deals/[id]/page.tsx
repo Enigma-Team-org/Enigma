@@ -1,7 +1,8 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { cn, formatAddress, formatCurrency } from '@/lib/utils/index';
@@ -72,8 +73,8 @@ const statusConfig: Record<
 
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const queryClient = useQueryClient();
+  const { address } = useAccount();
 
   const {
     data: deal,
@@ -272,7 +273,7 @@ export default function DealDetailPage() {
       </div>
 
       {/* Chat */}
-      <DealChat dealId={deal.id} currentAddress={deal.buyerAddress} />
+      <DealChat dealId={deal.id} currentAddress={address ?? deal.buyerAddress} />
     </div>
   );
 }
