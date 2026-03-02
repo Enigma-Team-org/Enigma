@@ -9,7 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Clock, Database, Shield, ShieldAlert, ShieldCheck, ShieldX, Star } from 'lucide-react';
+import { ArrowUpDown, Database, Shield, ShieldAlert, ShieldCheck, ShieldX, Clock, Star, Award } from 'lucide-react';
 import { useState } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { Badge } from '@/components/ui/badge';
@@ -48,29 +48,21 @@ function getTrustScoreLineColor(score: number): string {
   return '#FB7185';
 }
 
-function getStatusConfig(status: string) {
-  const configs = {
-    VERIFIED:  { icon: ShieldCheck, className: 'bg-[rgba(74,222,128,0.1)] text-[#4ADE80] border-[rgba(74,222,128,0.2)]' },
-    PENDING:   { icon: Clock,       className: 'bg-[rgba(252,211,77,0.1)] text-[#FCD34D] border-[rgba(252,211,77,0.2)]' },
-    FLAGGED:   { icon: ShieldAlert, className: 'bg-[rgba(251,113,133,0.1)] text-[#FB7185] border-[rgba(251,113,133,0.2)]' },
-    SUSPENDED: { icon: ShieldX,     className: 'bg-[rgba(251,113,133,0.08)] text-[#FB7185] border-[rgba(251,113,133,0.15)]' },
+function getStatusConfig(status: string, verifiedTier?: string | null) {
+  if (verifiedTier === 'PREMIUM') {
+    return { icon: Award, className: 'bg-[rgba(245,158,11,0.1)] text-[#F59E0B] border-[rgba(245,158,11,0.2)]', label: 'PREMIUM' };
+  }
+  const configs: Record<string, { icon: typeof ShieldCheck; className: string; label: string }> = {
+    VERIFIED:  { icon: ShieldCheck, className: 'bg-[rgba(74,222,128,0.1)] text-[#4ADE80] border-[rgba(74,222,128,0.2)]', label: 'VERIFIED' },
+    PENDING:   { icon: Clock,       className: 'bg-[rgba(252,211,77,0.1)] text-[#FCD34D] border-[rgba(252,211,77,0.2)]', label: 'PENDING' },
+    FLAGGED:   { icon: ShieldAlert, className: 'bg-[rgba(251,113,133,0.1)] text-[#FB7185] border-[rgba(251,113,133,0.2)]', label: 'FLAGGED' },
+    SUSPENDED: { icon: ShieldX,     className: 'bg-[rgba(251,113,133,0.08)] text-[#FB7185] border-[rgba(251,113,133,0.15)]', label: 'SUSPENDED' },
   };
-  return configs[status as keyof typeof configs] || {
+  return configs[status] || {
     icon: Shield,
     className: 'bg-[rgba(255,255,255,0.05)] text-[#64748B] border-[rgba(255,255,255,0.1)]',
+    label: status,
   };
-}
-
-function formatRelativeTime(dateString: string): string {
-  const diffMs = Date.now() - new Date(dateString).getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return new Date(dateString).toLocaleDateString();
 }
 
 function truncateAddress(address: string): string {
@@ -79,7 +71,7 @@ function truncateAddress(address: string): string {
 
 function mockSparkData(address: string, score: number) {
   const seed = address.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return Array.from({ length: 8 }, (_, i) => {
+  return Array.from({ length: 10 }, (_, i) => {
     const v = ((seed * (i + 1) * 7919) % 21) - 10;
     return { v: Math.max(0, Math.min(100, score + v)) };
   });
@@ -93,7 +85,7 @@ function MiniSparkline({ address, score, realData }: {
   const data = (realData && realData.length >= 2) ? realData : mockSparkData(address, score);
   const color = getTrustScoreLineColor(score);
   return (
-    <div className="h-8 w-16">
+    <div className="h-7 w-20">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
           <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
@@ -103,19 +95,46 @@ function MiniSparkline({ address, score, realData }: {
   );
 }
 
-function getServiceStyle(service: string): string {
-  switch (service.toLowerCase()) {
-    case 'mcp':  return 'bg-[rgba(74,222,128,0.1)] text-[#4ADE80] border-[rgba(74,222,128,0.2)]';
-    case 'a2a':  return 'bg-[rgba(252,211,77,0.1)] text-[#FCD34D] border-[rgba(252,211,77,0.2)]';
-    case 'web':  return 'bg-[rgba(34,211,238,0.1)] text-[#22D3EE] border-[rgba(34,211,238,0.2)]';
-    case 'oasf': return 'bg-[rgba(167,139,250,0.1)] text-[#A78BFA] border-[rgba(167,139,250,0.2)]';
-    default:     return 'bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.1)] text-[#64748B]';
-  }
+/** Service protocol dots — compact inline indicators */
+const KNOWN_PROTOCOLS = ['web', 'A2A', 'MCP', 'OASF'] as const;
+const protocolColors: Record<string, string> = {
+  web:  '#22D3EE',
+  a2a:  '#FCD34D',
+  mcp:  '#4ADE80',
+  oasf: '#A78BFA',
+};
+
+function ProtocolDots({ services }: { services: string[] }) {
+  const matched = KNOWN_PROTOCOLS.filter((p) =>
+    services.some((s) => s.toLowerCase() === p.toLowerCase())
+  );
+  const extra = services.length - matched.length;
+
+  return (
+    <div className="flex items-center gap-1">
+      {matched.map((p) => (
+        <span
+          key={p}
+          title={p}
+          className="inline-flex h-[18px] items-center rounded px-1 text-[9px] font-bold"
+          style={{
+            background: `${protocolColors[p.toLowerCase()]}18`,
+            color: protocolColors[p.toLowerCase()],
+          }}
+        >
+          {p}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span className="text-[9px] text-[#475569]">+{extra}</span>
+      )}
+    </div>
+  );
 }
 
 // X (Twitter) share icon SVG
 const XIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.736l7.737-8.843L1.254 2.25H8.08l4.259 5.632zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
   </svg>
 );
@@ -127,11 +146,11 @@ const columns: ColumnDef<Agent>[] = [
     id: 'rank',
     header: '#',
     cell: ({ row }) => (
-      <span className="font-data text-xs font-bold text-[#475569]">
-        {row.original.rank ? `#${row.original.rank}` : row.index + 1}
+      <span className="font-data text-[11px] font-bold text-[#475569]">
+        {row.original.rank ? `#${row.original.rank}` : ''}
       </span>
     ),
-    size: 44,
+    size: 36,
   },
   {
     accessorKey: 'name',
@@ -141,21 +160,22 @@ const columns: ColumnDef<Agent>[] = [
         onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         className="h-auto p-0 text-[10px] font-semibold uppercase tracking-widest text-[#475569] hover:bg-transparent hover:text-white"
       >
-        Name
-        <ArrowUpDown className="ml-1.5 h-3 w-3" />
+        Agent
+        <ArrowUpDown className="ml-1 h-2.5 w-2.5" />
       </Button>
     ),
     cell: ({ row }) => {
       const image = row.original.metadata?.image;
+      const services = row.original.services ?? [];
       return (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Avatar */}
-          <div className="relative h-8 w-8 shrink-0">
+          <div className="relative h-7 w-7 shrink-0">
             {image ? (
               <img
                 src={image}
                 alt={row.original.name}
-                className="h-8 w-8 rounded-lg object-cover ring-1 ring-[rgba(255,255,255,0.08)]"
+                className="h-7 w-7 rounded-lg object-cover ring-1 ring-[rgba(255,255,255,0.08)]"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
@@ -165,56 +185,31 @@ const columns: ColumnDef<Agent>[] = [
             ) : null}
             <div
               className={cn(
-                'h-8 w-8 items-center justify-center rounded-lg bg-[rgba(255,255,255,0.04)] text-[10px] font-bold text-[#475569] ring-1 ring-[rgba(255,255,255,0.08)]',
+                'h-7 w-7 items-center justify-center rounded-lg bg-[rgba(255,255,255,0.04)] text-[9px] font-bold text-[#475569] ring-1 ring-[rgba(255,255,255,0.08)]',
                 image ? 'hidden' : 'flex',
               )}
             >
               {row.original.name.slice(0, 2).toUpperCase()}
             </div>
           </div>
-          {/* Name + address */}
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-white">{row.original.name}</span>
+          {/* Name + address + protocols */}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1">
+              <span className="text-[13px] font-medium text-white leading-tight">{row.original.name}</span>
               {row.original.metadata && (
-                <span title="Has on-chain metadata">
-                  <Database className="h-2.5 w-2.5 shrink-0 text-[#475569]" />
-                </span>
+                <Database className="h-2.5 w-2.5 shrink-0 text-[#334155]" />
               )}
             </div>
-            <span className="font-data text-[10px] text-[#475569]">
-              {truncateAddress(row.original.address)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-data text-[10px] text-[#475569]">
+                {truncateAddress(row.original.address)}
+              </span>
+              {services.length > 0 && <ProtocolDots services={services} />}
+            </div>
           </div>
         </div>
       );
     },
-  },
-  {
-    accessorKey: 'type',
-    header: () => (
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Type</span>
-    ),
-    cell: ({ row }) => {
-      const services = row.original.services;
-      if (services && services.length > 0) {
-        return (
-          <div className="flex flex-wrap gap-1">
-            {services.map((svc) => (
-              <Badge key={svc} variant="outline" className={cn('text-[10px] px-1.5 py-0', getServiceStyle(svc))}>
-                {svc}
-              </Badge>
-            ))}
-          </div>
-        );
-      }
-      return (
-        <Badge variant="outline" className="text-[10px] bg-[rgba(255,255,255,0.04)] border-[rgba(255,255,255,0.08)] text-[#64748B]">
-          {row.original.type}
-        </Badge>
-      );
-    },
-    size: 140,
   },
   {
     accessorKey: 'trust_score',
@@ -225,18 +220,18 @@ const columns: ColumnDef<Agent>[] = [
         className="h-auto p-0 text-[10px] font-semibold uppercase tracking-widest text-[#475569] hover:bg-transparent hover:text-white"
       >
         Score
-        <ArrowUpDown className="ml-1.5 h-3 w-3" />
+        <ArrowUpDown className="ml-1 h-2.5 w-2.5" />
       </Button>
     ),
     cell: ({ row }) => {
       const score = row.original.trust_score;
       return (
-        <span className={cn('font-data inline-flex items-center justify-center rounded-md px-2 py-1 text-sm font-bold', getTrustScoreColor(score))}>
+        <span className={cn('font-data inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold', getTrustScoreColor(score))}>
           {score}
         </span>
       );
     },
-    size: 80,
+    size: 64,
   },
   {
     accessorKey: 'status',
@@ -244,28 +239,16 @@ const columns: ColumnDef<Agent>[] = [
       <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Status</span>
     ),
     cell: ({ row }) => {
-      const config = getStatusConfig(row.original.status);
+      const config = getStatusConfig(row.original.status, row.original.verified_tier);
       const Icon = config.icon;
       return (
-        <Badge variant="outline" className={cn('gap-1 text-[10px]', config.className)}>
-          <Icon className="h-3 w-3" />
-          {row.original.status}
+        <Badge variant="outline" className={cn('gap-1 text-[9px] px-1.5 py-0', config.className)}>
+          <Icon className="h-2.5 w-2.5" />
+          {config.label}
         </Badge>
       );
     },
-    size: 110,
-  },
-  {
-    accessorKey: 'updated_at',
-    header: () => (
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Updated</span>
-    ),
-    cell: ({ row }) => (
-      <span className="font-data text-xs text-[#475569]">
-        {formatRelativeTime(row.original.updated_at)}
-      </span>
-    ),
-    size: 110,
+    size: 90,
   },
 ];
 
@@ -275,7 +258,35 @@ export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  // Trend column closes over `sparklines` prop
+  // Signals column — compact inline
+  const signalsColumn: ColumnDef<Agent> = {
+    id: 'signals',
+    header: () => (
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Signals</span>
+    ),
+    cell: ({ row }) => {
+      const agentSignals = signals[row.original.address] ?? [];
+      if (agentSignals.length === 0) return null;
+      return (
+        <div className="flex items-center gap-1">
+          {agentSignals.slice(0, 2).map((sig) => (
+            <span
+              key={sig.type}
+              className={cn('rounded px-1 py-0 text-[8px] font-bold leading-[16px]', sig.bgColor, sig.color)}
+            >
+              {sig.label}
+            </span>
+          ))}
+          {agentSignals.length > 2 && (
+            <span className="text-[9px] text-[#475569]">+{agentSignals.length - 2}</span>
+          )}
+        </div>
+      );
+    },
+    size: 100,
+  };
+
+  // Trend column — sparkline
   const trendColumn: ColumnDef<Agent> = {
     id: 'trend',
     header: () => (
@@ -288,69 +299,20 @@ export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange
         realData={sparklines[row.original.address]}
       />
     ),
-    size: 80,
+    size: 88,
   };
 
-  // Signals column
-  const signalsColumn: ColumnDef<Agent> = {
-    id: 'signals',
-    header: () => (
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Signals</span>
-    ),
-    cell: ({ row }) => {
-      const agentSignals = signals[row.original.address] ?? [];
-      if (agentSignals.length === 0) return null;
-      return (
-        <div className="flex flex-wrap gap-1">
-          {agentSignals.slice(0, 3).map((sig) => (
-            <span
-              key={sig.type}
-              className={cn('rounded px-1.5 py-0.5 text-[9px] font-bold', sig.bgColor, sig.color)}
-            >
-              {sig.label}
-            </span>
-          ))}
-        </div>
-      );
-    },
-    size: 120,
-  };
-
-  // Stars column
-  const starsColumn: ColumnDef<Agent> = {
-    id: 'stars',
-    header: () => (
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">
-        <Star className="inline h-3 w-3" />
-      </span>
-    ),
-    cell: ({ row }) => {
-      const count = row.original.star_count ?? 0;
-      return (
-        <div className="flex items-center gap-1 text-[#475569]">
-          <Star className={cn('h-3 w-3', count > 0 && 'fill-[#FCD34D] text-[#FCD34D]')} />
-          <span className="font-data text-xs">{count}</span>
-        </div>
-      );
-    },
-    size: 60,
-  };
-
-  // Share column — opens X/Twitter directly, no modal
-  const shareColumn: ColumnDef<Agent> = {
-    id: 'share',
+  // Stars + Share combined column
+  const actionsColumn: ColumnDef<Agent> = {
+    id: 'actions',
     header: () => null,
     cell: ({ row }) => {
       const agent = row.original;
+      const count = agent.star_count ?? 0;
       const handleShare = (e: React.MouseEvent) => {
         e.stopPropagation();
         const url  = `${window.location.origin}/agents/${agent.address}`;
-        const text = [
-          `\uD83D\uDD0D ${agent.name} — Trust Score: ${agent.trust_score}/100`,
-          `\u2705 ${agent.status} | ${agent.type}`,
-          ``,
-          `Verified on Enigma \u00B7 Avalanche`,
-        ].join('\n');
+        const text = `\uD83D\uDD0D ${agent.name} — Trust Score: ${agent.trust_score}/100\n\u2705 ${agent.status}\n\nVerified on Enigma \u00B7 Avalanche`;
         window.open(
           `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
           '_blank',
@@ -358,21 +320,27 @@ export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange
         );
       };
       return (
-        <button
-          onClick={handleShare}
-          title="Share on X"
-          className="flex items-center justify-center rounded-lg p-1.5 text-[#475569] transition-colors hover:bg-[rgba(29,161,242,0.08)] hover:text-[#1D9BF0]"
-        >
-          <XIcon />
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 text-[#475569]" title={`${count} stars`}>
+            <Star className={cn('h-3 w-3', count > 0 && 'fill-[#FCD34D] text-[#FCD34D]')} />
+            {count > 0 && <span className="font-data text-[10px]">{count}</span>}
+          </div>
+          <button
+            onClick={handleShare}
+            title="Share on X"
+            className="flex items-center justify-center rounded p-1 text-[#334155] transition-colors hover:bg-[rgba(29,161,242,0.08)] hover:text-[#1D9BF0]"
+          >
+            <XIcon />
+          </button>
+        </div>
       );
     },
-    size: 40,
+    size: 64,
   };
 
   const table = useReactTable({
     data: agents,
-    columns: [...columns, signalsColumn, trendColumn, starsColumn, shareColumn],
+    columns: [...columns, signalsColumn, trendColumn, actionsColumn],
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: (updater) => {
@@ -396,7 +364,7 @@ export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange
               className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] hover:bg-transparent"
             >
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} style={{ width: header.getSize() }} className="py-2.5 text-[rgba(255,255,255,0.5)]">
+                <TableHead key={header.id} style={{ width: header.getSize() }} className="py-2 text-[rgba(255,255,255,0.5)]">
                   {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                 </TableHead>
               ))}
@@ -404,16 +372,15 @@ export function AgentTable({ agents, sparklines = {}, signals = {}, onSortChange
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row, index) => (
+          {table.getRowModel().rows.map((row) => (
             <TableRow
               key={row.id}
               data-href={`/agents/${row.original.address}`}
               onClick={() => router.push(`/agents/${row.original.address}`)}
               className="cursor-pointer border-b border-[rgba(255,255,255,0.04)] transition-colors duration-150 hover:bg-[rgba(74,222,128,0.03)]"
-              style={{ animationDelay: `${index * 30}ms` }}
             >
               {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="py-2.5">
+                <TableCell key={cell.id} className="py-2">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               ))}
