@@ -34,9 +34,9 @@ const navItems = [
   { href: '/docs',           label: 'Docs',     icon: BookOpen,        exact: false },
 ] as const;
 
-const disabledItems = [
-  { label: 'Analytics', icon: BarChart2 },
-  { label: 'Settings',  icon: Settings  },
+const comingSoonItems = [
+  { label: 'Analytics', icon: BarChart2, feature: 'analytics' },
+  { label: 'Settings',  icon: Settings,  feature: 'settings'  },
 ];
 
 interface DashboardSidebarProps {
@@ -166,25 +166,27 @@ export function DashboardSidebar({ isOpen = false, onClose }: DashboardSidebarPr
             More
           </p>
 
-          {disabledItems.map((item) => {
+          {comingSoonItems.map((item) => {
             const Icon = item.icon;
             return (
-              <div
+              <Link
                 key={item.label}
+                href={`/coming-soon?feature=${item.feature}`}
+                onClick={onClose}
                 className={cn(
-                  'flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm',
-                  'border-l-2 border-transparent pl-[10px] text-[#475569]',
+                  'group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-150',
+                  'border-l-2 border-transparent pl-[10px] text-[#64748B] hover:bg-[rgba(255,255,255,0.04)] hover:text-[#94A3B8]',
                 )}
               >
-                <Icon className="h-4 w-4 flex-shrink-0 text-[#334155]" />
+                <Icon className="h-4 w-4 flex-shrink-0 text-[#475569] group-hover:text-[#64748B]" />
                 <span className="flex-1">{item.label}</span>
                 <span className={cn(
                   'rounded-sm px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide',
-                  'bg-[rgba(255,255,255,0.04)] text-[#475569]',
+                  'bg-[rgba(167,139,250,0.1)] text-[#A78BFA]',
                 )}>
                   Soon
                 </span>
-              </div>
+              </Link>
             );
           })}
         </nav>

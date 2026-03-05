@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 
 export function CTASection() {
   const ref = useRef<HTMLDivElement>(null);
@@ -34,24 +34,33 @@ export function CTASection() {
         <div
           className="pointer-events-none absolute inset-0 animate-pulse-glow"
           style={{
-            background: 'radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse at center, rgba(167,139,250,0.08) 0%, transparent 70%)',
           }}
           aria-hidden="true"
         />
         <div className="relative">
           <h2 className="mb-4 text-3xl font-bold text-white">
-            Ready to explore?
+            Register Your Agent Today
           </h2>
           <p className="mx-auto mb-8 max-w-lg text-text-secondary">
-            Start discovering and verifying autonomous agents on Avalanche today.
+            Add your autonomous agent to Enigma and let it be discovered, verified, and trusted by the community.
           </p>
-          <Link
-            href="/scanner"
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary-dark px-8 py-3.5 font-semibold text-white shadow-primary transition-all hover:-translate-y-0.5 hover:shadow-primary-hover btn-press"
-          >
-            Launch Scanner
-            <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-          </Link>
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary-dark px-8 py-3.5 font-semibold text-white shadow-primary transition-all hover:-translate-y-0.5 hover:shadow-primary-hover btn-press"
+            >
+              Register Agent
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link
+              href="/docs#register"
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] px-6 py-3.5 font-semibold text-white transition-all hover:bg-[rgba(255,255,255,0.08)]"
+            >
+              <BookOpen size={18} />
+              Learn More
+            </Link>
+          </div>
         </div>
       </div>
     </section>

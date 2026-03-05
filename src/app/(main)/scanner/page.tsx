@@ -9,6 +9,7 @@ import { useAgentStats } from '@/hooks/use-agent-stats';
 import { useSignals } from '@/hooks/use-signals';
 import { KpiCard } from '@/components/scanner/kpi-card';
 import { ActivityChart } from '@/components/scanner/activity-chart';
+import { TrustDistributionChart } from '@/components/scanner/trust-distribution-chart';
 import { TopAgentsList } from '@/components/scanner/top-agents-list';
 import { RecentActivity } from '@/components/scanner/recent-activity';
 import { LiveFeed } from '@/components/scanner/live-feed';
@@ -20,7 +21,7 @@ import { ErrorState } from '@/components/scanner/error-state';
 import { AgentTableSkeleton } from '@/components/scanner/agent-table-skeleton';
 import { cn } from '@/lib/utils';
 
-const DEFAULT_FILTERS: FilterValues = { service: undefined, status: undefined, trustScoreRange: [0, 100] };
+const DEFAULT_FILTERS: FilterValues = { service: undefined, status: undefined, trustScoreRange: [0, 100], quickFilter: undefined };
 
 function TablePagination({ page, meta, onPage }: {
   page: number;
@@ -63,7 +64,7 @@ export default function ScannerPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const isFiltered = !!filters.service || !!filters.status || filters.trustScoreRange[0] > 0 || filters.trustScoreRange[1] < 100;
+  const isFiltered = !!filters.service || !!filters.status || filters.trustScoreRange[0] > 0 || filters.trustScoreRange[1] < 100 || !!filters.quickFilter;
 
   const { data, isLoading, isError, refetch } = useAgents({
     ...(filters.service       && { service: filters.service }),
@@ -74,7 +75,7 @@ export default function ScannerPage() {
     ...(filters.sortBy        && { sortBy: filters.sortBy }),
     ...(filters.sortOrder     && { sortOrder: filters.sortOrder }),
     page,
-    limit: 20,
+    limit: filters.quickFilter === 'top-100' ? 100 : 20,
   });
   const { data: stats } = useAgentStats();
 
@@ -135,13 +136,16 @@ export default function ScannerPage() {
         />
       </div>
 
-      {/* Activity Chart + Side Widgets */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_272px]">
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ActivityChart />
-        <div className="flex flex-col gap-4">
-          <TopAgentsList agents={agents} isLoading={isLoading} />
-          <LiveFeed limit={10} maxHeight="280px" />
-        </div>
+        <TrustDistributionChart />
+      </div>
+
+      {/* Side Widgets */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <TopAgentsList agents={agents} isLoading={isLoading} />
+        <LiveFeed limit={10} maxHeight="280px" />
       </div>
 
       {/* Agent Registry Table + Filters sidebar */}

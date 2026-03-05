@@ -80,14 +80,14 @@ export function Header() {
               <WalletConnectButton className="h-8 text-xs" />
             </div>
             <Link
-              href="/scanner"
+              href="/docs"
               className={cn(
                 'hidden items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold md:flex',
-                'bg-primary text-[#0B0F14] transition-all duration-150',
-                'hover:bg-[#6EE7A0] hover:shadow-[0_0_16px_rgba(74,222,128,0.35)]',
+                'border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.04)] text-white transition-all duration-150',
+                'hover:bg-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)]',
               )}
             >
-              Launch App
+              Documentation
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
 

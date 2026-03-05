@@ -1,6 +1,6 @@
 'use client';
 
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Trophy, Sparkles } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils/index';
 
@@ -10,6 +10,7 @@ export interface FilterValues {
   trustScoreRange: [number, number];
   sortBy?: 'trust_score' | 'created_at' | 'name';
   sortOrder?: 'asc' | 'desc';
+  quickFilter?: 'top-100' | 'new-agents';
 }
 
 interface FiltersProps {
@@ -42,6 +43,21 @@ const SORT_FIELDS = [
 const SORT_ORDERS = [
   { value: 'desc', label: 'High → Low' },
   { value: 'asc',  label: 'Low → High' },
+];
+
+const QUICK_FILTERS = [
+  {
+    id: 'top-100' as const,
+    label: 'Top 100',
+    icon: Trophy,
+    preset: { sortBy: 'trust_score' as const, sortOrder: 'desc' as const, trustScoreRange: [0, 100] as [number, number] },
+  },
+  {
+    id: 'new-agents' as const,
+    label: 'New Agents',
+    icon: Sparkles,
+    preset: { sortBy: 'created_at' as const, sortOrder: 'desc' as const, trustScoreRange: [0, 100] as [number, number] },
+  },
 ];
 
 // ---- tiny select --------------------------------------------------------
@@ -86,12 +102,50 @@ export function Filters({ values, onChange }: FiltersProps) {
     !!values.status ||
     values.trustScoreRange[0] > 0 ||
     values.trustScoreRange[1] < 100 ||
-    !!values.sortBy;
+    !!values.sortBy ||
+    !!values.quickFilter;
 
   const set = (patch: Partial<FilterValues>) => onChange({ ...values, ...patch });
 
   return (
     <div className="flex flex-col gap-5">
+
+      {/* Quick Filters */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475569]">Quick Filters</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {QUICK_FILTERS.map((qf) => {
+            const Icon = qf.icon;
+            const active = values.quickFilter === qf.id;
+            return (
+              <button
+                key={qf.id}
+                onClick={() => {
+                  if (active) {
+                    set({ quickFilter: undefined });
+                  } else {
+                    set({
+                      ...qf.preset,
+                      quickFilter: qf.id,
+                      service: undefined,
+                      status: undefined,
+                    });
+                  }
+                }}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-2 text-xs font-semibold transition-all duration-100',
+                  active
+                    ? 'border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.1)] text-[#4ADE80]'
+                    : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] text-[#94A3B8] hover:bg-[rgba(255,255,255,0.06)] hover:text-white',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {qf.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Service Categories */}
       <div className="space-y-1.5">
@@ -170,7 +224,7 @@ export function Filters({ values, onChange }: FiltersProps) {
       {/* Reset */}
       {hasActive && (
         <button
-          onClick={() => onChange({ service: undefined, status: undefined, trustScoreRange: [0, 100], sortBy: undefined, sortOrder: undefined })}
+          onClick={() => onChange({ service: undefined, status: undefined, trustScoreRange: [0, 100], sortBy: undefined, sortOrder: undefined, quickFilter: undefined })}
           className={cn(
             'flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-all',
             'border border-[rgba(251,113,133,0.2)] text-[#FB7185]',
