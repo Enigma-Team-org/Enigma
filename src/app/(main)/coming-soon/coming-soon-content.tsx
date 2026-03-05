@@ -1,10 +1,30 @@
-import { Suspense } from 'react';
+'use client';
+
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Clock, ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ComingSoonContent } from './coming-soon-content';
 
-function ComingSoonSkeleton() {
+const FEATURE_INFO: Record<string, { title: string; description: string }> = {
+  analytics: {
+    title: 'Analytics Dashboard',
+    description: 'Advanced analytics and insights for your agents, including performance metrics, trend analysis, and predictive indicators.',
+  },
+  settings: {
+    title: 'Settings',
+    description: 'Customize your Enigma experience with personalized preferences, notification controls, and account management.',
+  },
+  default: {
+    title: 'New Feature',
+    description: 'We\'re working on something exciting. Stay tuned for updates!',
+  },
+};
+
+export function ComingSoonContent() {
+  const searchParams = useSearchParams();
+  const feature = searchParams.get('feature') ?? 'default';
+  const info = FEATURE_INFO[feature] ?? FEATURE_INFO.default;
+
   return (
     <div className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4">
       <div className="text-center">
@@ -20,8 +40,10 @@ function ComingSoonSkeleton() {
           </div>
         </div>
 
-        {/* Title skeleton */}
-        <div className="mb-3 h-9 w-48 mx-auto rounded bg-[rgba(255,255,255,0.1)] animate-pulse" />
+        {/* Title */}
+        <h1 className="mb-3 text-3xl font-bold text-white">
+          {info.title}
+        </h1>
 
         {/* Badge */}
         <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-[rgba(167,139,250,0.1)] px-3 py-1 text-xs font-semibold text-[#A78BFA]">
@@ -29,11 +51,10 @@ function ComingSoonSkeleton() {
           Coming Soon
         </div>
 
-        {/* Description skeleton */}
-        <div className="mx-auto mb-8 max-w-md space-y-2">
-          <div className="h-4 w-full rounded bg-[rgba(255,255,255,0.1)] animate-pulse" />
-          <div className="h-4 w-3/4 mx-auto rounded bg-[rgba(255,255,255,0.1)] animate-pulse" />
-        </div>
+        {/* Description */}
+        <p className="mx-auto mb-8 max-w-md text-[rgba(255,255,255,0.6)]">
+          {info.description}
+        </p>
 
         {/* Actions */}
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -49,15 +70,20 @@ function ComingSoonSkeleton() {
             </Link>
           </Button>
         </div>
+
+        {/* Footer note */}
+        <p className="mt-8 text-xs text-[rgba(255,255,255,0.4)]">
+          Want to be notified when this feature launches?{' '}
+          <a
+            href="https://t.me/enigma_avax"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#A78BFA] hover:underline"
+          >
+            Join our Telegram
+          </a>
+        </p>
       </div>
     </div>
-  );
-}
-
-export default function ComingSoonPage() {
-  return (
-    <Suspense fallback={<ComingSoonSkeleton />}>
-      <ComingSoonContent />
-    </Suspense>
   );
 }
